@@ -4,11 +4,11 @@
  */
 package mockit.coverage.paths;
 
-import java.io.*;
-import java.util.*;
-import javax.annotation.*;
-
-import mockit.coverage.paths.Node.*;
+import javax.annotation.Nonnull;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 public final class MethodCoverageData implements Serializable
 {
@@ -68,22 +68,24 @@ public final class MethodCoverageData implements Serializable
       Node node = nodes.get(nodeIndex);
       List<Node> currentNodesReached = nodesReached.get();
 
-      if (!node.wasReached() && (nodeIndex == 0 || nodeIndex > previousNodeIndex.get())) {
-         node.setReached(Boolean.TRUE);
-         currentNodesReached.add(node);
-         previousNodeIndex.set(nodeIndex);
-      }
+      node.setReached(Boolean.TRUE);
+      currentNodesReached.add(node);
 
-      if (node instanceof Exit) {
-         Exit exitNode = (Exit) node;
+      int previousExecutionCount = -1;
+      if (node instanceof Node.Exit) {
+         Node start = currentNodesReached.get(0);
+         if (start instanceof Node.Entry) {
+            Node.Entry startNode = (Node.Entry) start;
 
-         for (Path path : exitNode.paths) {
-            int previousExecutionCount = path.countExecutionIfAllNodesWereReached(currentNodesReached);
+            for (Path path : startNode.primePaths) {
+               int previousExecutionCountPath = path.countExecutionIfAllNodesWereReached(currentNodesReached);
 
-            if (previousExecutionCount >= 0) {
-               return previousExecutionCount;
+               if (previousExecutionCountPath == 0) {
+                  previousExecutionCount = 0;
+               }
             }
          }
+         return previousExecutionCount;
       }
 
       return -1;

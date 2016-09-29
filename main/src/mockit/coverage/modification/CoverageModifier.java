@@ -4,16 +4,24 @@
  */
 package mockit.coverage.modification;
 
-import java.io.*;
-import java.util.*;
-import javax.annotation.*;
-
-import mockit.coverage.data.*;
-import mockit.coverage.lines.*;
-import mockit.coverage.paths.*;
+import mockit.coverage.data.CoverageData;
+import mockit.coverage.data.FileCoverageData;
+import mockit.coverage.lines.BranchCoverageData;
+import mockit.coverage.lines.LineCoverageData;
+import mockit.coverage.lines.PerFileLineCoverage;
+import mockit.coverage.paths.MethodCoverageData;
+import mockit.coverage.paths.NodeBuilder;
 import mockit.external.asm.*;
-import static mockit.coverage.Metrics.*;
-import static mockit.external.asm.ClassReader.*;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.*;
+
+import static mockit.coverage.Metrics.DataCoverage;
+import static mockit.coverage.Metrics.PathCoverage;
+import static mockit.external.asm.ClassReader.SKIP_FRAMES;
 import static mockit.external.asm.Opcodes.*;
 
 final class CoverageModifier extends ClassVisitor
@@ -566,8 +574,7 @@ final class CoverageModifier extends ClassVisitor
       public final void visitJumpInsn(int opcode, @Nonnull Label label)
       {
          if (
-            nodeBuilder == null || entryPoint == null || ignoreUntilNextSwitch > 0 ||
-            visitedLabels.contains(label)
+            nodeBuilder == null || entryPoint == null || ignoreUntilNextSwitch > 0
          ) {
             super.visitJumpInsn(opcode, label);
             return;

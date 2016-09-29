@@ -4,10 +4,12 @@
  */
 package mockit.coverage.paths;
 
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.atomic.*;
-import javax.annotation.*;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public final class Path implements Serializable
 {
@@ -18,10 +20,10 @@ public final class Path implements Serializable
    private final boolean shadowed;
    @Nullable private Path shadowPath;
 
-   Path(@Nonnull Node.Entry entryNode)
+   Path(@Nonnull Node node)
    {
       shadowed = false;
-      addNode(entryNode);
+      addNode(node);
    }
 
    Path(@Nonnull Path sharedSubPath, boolean shadowed)
@@ -35,7 +37,37 @@ public final class Path implements Serializable
 
    int countExecutionIfAllNodesWereReached(@Nonnull List<Node> nodesReached)
    {
-      boolean allNodesReached = nodes.equals(nodesReached);
+      Node startPath = this.nodes.get(0);
+      int posReached = nodesReached.indexOf(startPath);
+      if (posReached < 0) return -1;
+
+      boolean allNodesReached;
+
+      int posPath = 0;
+      while (true) {
+         if (nodesReached.get(posReached) != this.nodes.get(posPath)) {
+            while (nodesReached.get(posReached) != startPath) {
+               posReached++;
+               if (posReached >= nodesReached.size()) break;
+            }
+            if (posReached >= nodesReached.size()) {
+               allNodesReached = false;
+               break;
+            }
+            posPath = 0;
+         }
+         posPath++;
+         if (posPath == this.nodes.size()) {
+            allNodesReached = true;
+            break;
+         }
+         posReached++;
+         if (posReached == nodesReached.size()) {
+            allNodesReached = false;
+            break;
+         }
+      }
+
 
       if (allNodesReached) {
          return executionCount.getAndIncrement();
@@ -68,5 +100,12 @@ public final class Path implements Serializable
    void reset()
    {
       executionCount.set(0);
+   }
+
+   public boolean isPrime() {
+      Node node = this.nodes.get(0);
+      for (Node n: node.getIncomingNodes())
+         if (!this.nodes.contains(n)) return false;
+      return true;
    }
 }
