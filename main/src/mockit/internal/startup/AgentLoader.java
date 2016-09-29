@@ -34,7 +34,7 @@ public final class AgentLoader
          throw new IllegalStateException("JMockit requires a Java 6+ VM");
       }
 
-      jarFilePath = new PathToAgentJar().getPathToJarFile();
+      jarFilePath = PathToAgentJar.getPathToJarFile();
    }
 
    public AgentLoader(@Nonnull String pid)
@@ -100,10 +100,12 @@ public final class AgentLoader
       if (osName.startsWith("Linux") || osName.startsWith("LINUX")) {
          return LinuxVirtualMachine.class;
       }
-      else if (osName.contains("FreeBSD") || osName.startsWith("Mac OS X")) {
+
+      if (osName.contains("FreeBSD") || osName.startsWith("Mac OS X")) {
          return BsdVirtualMachine.class;
       }
-      else if (osName.startsWith("Solaris") || osName.contains("SunOS")) {
+
+      if (osName.startsWith("Solaris") || osName.contains("SunOS")) {
          return SolarisVirtualMachine.class;
       }
 
