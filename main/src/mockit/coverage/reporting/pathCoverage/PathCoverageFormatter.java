@@ -4,11 +4,14 @@
  */
 package mockit.coverage.reporting.pathCoverage;
 
-import java.io.*;
-import java.util.*;
-import javax.annotation.*;
+import mockit.coverage.paths.Node;
+import mockit.coverage.paths.Path;
 
-import mockit.coverage.paths.*;
+import javax.annotation.Nonnull;
+import java.io.PrintWriter;
+import java.text.MessageFormat;
+import java.util.Iterator;
+import java.util.List;
 
 final class PathCoverageFormatter
 {
@@ -55,9 +58,9 @@ final class PathCoverageFormatter
 
       output.write("        <span class='");
       output.write(executionCount == 0 ? "uncovered" : "covered");
-      output.write("' onclick=\"showPath(this,'");
+      output.write("' onclick=\"showPath(this,");
       output.write(lineSegmentIdsForPath);
-      output.write("')\">");
+      output.write(")\">");
       writePathId();
       output.write(": ");
       output.print(executionCount);
@@ -68,31 +71,34 @@ final class PathCoverageFormatter
    private String getIdsForLineSegmentsBelongingToThePath(@Nonnull Path path)
    {
       lineSegmentIds.setLength(0);
+      lineSegmentIds.append('[');
 
       int previousLine = 0;
       int previousSegment = 0;
 
-      for (Node node : path.getNodes()) {
+      Iterator<Node> it = path.getNodes().iterator();
+      while (it.hasNext()) {
+         Node node = it.next();
+         lineSegmentIds.append(MessageFormat.format("[''{0}'', ", node.toString()));
+         lineSegmentIds.append('\'');
+
          int line = node.line;
          int segment = node.getSegment();
 
-         if (line > previousLine) {
-            appendSegmentId(line, segment);
-            previousLine = line;
-         }
-         else if (segment > previousSegment) {
-            appendSegmentId(line, segment);
-         }
+         appendSegmentId(line, segment, false);
 
-         previousSegment = segment;
+         for (Node.LineSegment ls: node.getExtraLineSegments()) appendSegmentId(ls.line, ls.segment, true);
+         lineSegmentIds.append("\']");
+         if (it.hasNext()) lineSegmentIds.append(',');
       }
+      lineSegmentIds.append(']');
 
       return lineSegmentIds.toString();
    }
 
-   private void appendSegmentId(int line, int segment)
+   private void appendSegmentId(int line, int segment, boolean space)
    {
-      if (lineSegmentIds.length() > 0) {
+      if (space) {
          lineSegmentIds.append(' ');
       }
       

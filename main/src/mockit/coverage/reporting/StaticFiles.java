@@ -4,9 +4,9 @@
  */
 package mockit.coverage.reporting;
 
+import javax.annotation.Nonnull;
 import java.io.*;
-import java.security.*;
-import javax.annotation.*;
+import java.security.CodeSource;
 
 final class StaticFiles
 {

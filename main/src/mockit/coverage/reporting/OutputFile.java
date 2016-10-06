@@ -4,9 +4,11 @@
  */
 package mockit.coverage.reporting;
 
-import java.io.*;
-import java.util.regex.*;
-import javax.annotation.*;
+import javax.annotation.Nonnull;
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.regex.Pattern;
 
 public final class OutputFile extends PrintWriter
 {

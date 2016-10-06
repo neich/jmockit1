@@ -4,11 +4,13 @@
  */
 package mockit.coverage.paths;
 
-import java.util.*;
-import javax.annotation.*;
-
 import mockit.coverage.paths.Node.*;
-import mockit.external.asm.*;
+import mockit.external.asm.Label;
+import mockit.external.asm.Opcodes;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.*;
 
 public final class NodeBuilder
 {
@@ -20,8 +22,9 @@ public final class NodeBuilder
    @Nullable private BasicBlock currentBasicBlock;
    @Nullable private Join currentJoin;
    @Nonnull private final Map<Label, List<Fork>> jumpTargetToForks = new LinkedHashMap<Label, List<Fork>>();
-   @Nonnull private final Map<Label, List<GotoSuccessor>> gotoTargetToSuccessors =
-      new LinkedHashMap<Label, List<GotoSuccessor>>();
+   @Nonnull private final Map<Label, List<Goto>> gotoTargetToSuccessors =
+      new LinkedHashMap<Label, List<Goto>>();
+   @Nonnull private final Map<Label, Join> labelToJoin = new LinkedHashMap<Label, Join>();
 
    private int potentiallyTrivialJump;
 
@@ -57,7 +60,7 @@ public final class NodeBuilder
 
    public int handleRegularInstruction(int line, int opcode)
    {
-      if (currentSimpleFork == null && currentJoin == null) {
+      if (currentSimpleFork == null) {
          potentiallyTrivialJump = 0;
          return -1;
       }
@@ -80,26 +83,25 @@ public final class NodeBuilder
          potentiallyTrivialJump = 1;
          return addNewNode(newFork);
       }
-      else if (currentBasicBlock == null && currentJoin == null) {
+      else {
          Goto newGoto = new Goto(line);
-         connectNodes(newGoto);
-         setUpMappingFromGotoTargetToCurrentGotoSuccessor(targetBlock, newGoto);
+         connectNodes(targetBlock, newGoto);
          return addNewNode(newGoto);
       }
-      else {
-         setUpMappingFromGotoTargetToCurrentGotoSuccessor(targetBlock, null);
-         return -1;
-      }
+
    }
 
    public int handleJumpTarget(@Nonnull Label basicBlock, int line)
    {
       // Ignore for visitLabel calls preceding visitLineNumber:
+/*
       if (isNewLineTarget(basicBlock)) {
          return -1;
       }
+*/
 
       Join newNode = new Join(line);
+      labelToJoin.put(basicBlock, newNode);
       connectNodes(basicBlock, newNode);
 
       return addNewNode(newNode);
@@ -113,7 +115,7 @@ public final class NodeBuilder
    private void connectNodes(@Nonnull BasicBlock newBasicBlock, int opcode)
    {
       if (currentSimpleFork != null) {
-         currentSimpleFork.nextConsecutiveNode = newBasicBlock;
+         currentSimpleFork.setNextConsecutiveNode(newBasicBlock);
          currentSimpleFork = null;
 
          if (potentiallyTrivialJump == 1) {
@@ -131,7 +133,7 @@ public final class NodeBuilder
             potentiallyTrivialJump = 0;
          }
 
-         currentJoin.nextNode = newBasicBlock;
+         currentJoin.setNextConsecutiveNode(newBasicBlock);
          currentJoin = null;
       }
 
@@ -142,16 +144,41 @@ public final class NodeBuilder
    {
       assert entryNode != null;
 
-      if (entryNode.nextNode == null) {
-         entryNode.nextNode = newFork;
+      if (entryNode.getNextConsecutiveNode() == null) {
+         entryNode.setNextConsecutiveNode(newFork);
       }
 
-      setUpMappingFromConditionalTargetToFork(targetBlock, newFork);
+      Join join = labelToJoin.get(targetBlock);
+      if (join != null) {
+         newFork.addNextNode(join);
+      }
+      else
+         setUpMappingFromConditionalTargetToFork(targetBlock, newFork);
       connectNodes(newFork);
    }
 
+   private void connectNodes(@Nonnull Label targetBlock, @Nonnull Goto newGoto)
+   {
+      assert entryNode != null;
+
+      if (entryNode.getNextConsecutiveNode() == null) {
+         entryNode.setNextConsecutiveNode(newGoto);
+      }
+
+      Join join = labelToJoin.get(targetBlock);
+      if (join != null) {
+         newGoto.setNextNodeAfterGoto(join);
+      }
+      else
+         setUpMappingFromGotoTargetToCurrentGotoSuccessor(targetBlock, newGoto);
+      connectNodes(newGoto);
+   }
+
+
    private void setUpMappingFromConditionalTargetToFork(@Nonnull Label targetBlock, @Nonnull Fork newFork)
    {
+      if (labelToJoin.containsKey(targetBlock)) return;
+
       List<Fork> forksWithSameTarget = jumpTargetToForks.get(targetBlock);
 
       if (forksWithSameTarget == null) {
@@ -164,30 +191,16 @@ public final class NodeBuilder
 
    private void setUpMappingFromGotoTargetToCurrentGotoSuccessor(@Nonnull Label targetBlock, @Nullable Goto gotoNode)
    {
-      List<GotoSuccessor> successors = gotoTargetToSuccessors.get(targetBlock);
+      if (labelToJoin.containsKey(targetBlock)) return;
+
+      List<Goto> successors = gotoTargetToSuccessors.get(targetBlock);
 
       if (successors == null) {
-         successors = new LinkedList<GotoSuccessor>();
+         successors = new LinkedList<Goto>();
          gotoTargetToSuccessors.put(targetBlock, successors);
       }
 
-      // TODO: they both can be non-null here; what to do?
-      if (currentBasicBlock != null) {
-         assert currentJoin == null : "Ambiguous situation for " + targetBlock;
-         successors.add(currentBasicBlock);
-         currentBasicBlock = null;
-
-         if (potentiallyTrivialJump == 2) {
-            potentiallyTrivialJump = 3;
-         }
-      }
-      else if (currentJoin != null) {
-         successors.add(currentJoin);
-         currentJoin = null;
-      }
-      else {
-         successors.add(gotoNode);
-      }
+      successors.add(gotoNode);
    }
 
    private void connectNodes(@Nonnull Label basicBlock, @Nonnull Join newJoin)
@@ -206,23 +219,31 @@ public final class NodeBuilder
       return addNewNode(newNode);
    }
 
-   private void connectNodes(@Nonnull ConditionalSuccessor newNode)
+   private void connectNodes(@Nonnull Node newNode)
    {
+      if (entryNode.getNextConsecutiveNode() == null) {
+         entryNode.setNextConsecutiveNode(newNode);
+         assert currentSimpleFork == null;
+         assert currentJoin == null;
+         assert currentBasicBlock == null;
+
+      }
+
       if (currentSimpleFork != null) {
-         currentSimpleFork.nextConsecutiveNode = newNode;
+         currentSimpleFork.setNextConsecutiveNode(newNode);
          currentSimpleFork = null;
          assert currentJoin == null;
          assert currentBasicBlock == null;
       }
 
       if (currentJoin != null) {
-         currentJoin.nextNode = newNode;
+         currentJoin.setNextConsecutiveNode(newNode);
          currentJoin = null;
          assert currentBasicBlock == null;
       }
 
       if (currentBasicBlock != null) {
-         currentBasicBlock.nextConsecutiveNode = newNode;
+         currentBasicBlock.setNextConsecutiveNode(newNode);
          currentBasicBlock = null;
       }
    }
@@ -242,10 +263,10 @@ public final class NodeBuilder
 
    private void connectGotoSuccessorsToNewJoin(@Nonnull Label targetBlock, @Nonnull Join newJoin)
    {
-      List<GotoSuccessor> successors = gotoTargetToSuccessors.get(targetBlock);
+      List<Goto> successors = gotoTargetToSuccessors.get(targetBlock);
 
       if (successors != null) {
-         for (GotoSuccessor successorToGoto : successors) {
+         for (Goto successorToGoto : successors) {
             successorToGoto.setNextNodeAfterGoto(newJoin);
          }
 

@@ -4,34 +4,125 @@
  */
 package mockit.coverage.paths;
 
-import java.util.*;
-import javax.annotation.*;
+import mockit.coverage.paths.Node.Exit;
 
-import mockit.coverage.paths.Node.*;
+import javax.annotation.Nonnull;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Stack;
 
 final class PathBuilder
 {
    private PathBuilder() {}
 
    @Nonnull
-   static List<Path> buildPaths(@Nonnull List<Node> nodes)
+   static List<Path> buildPaths(@Nonnull List<Node> origNodes)
    {
-      if (nodes.size() == 1) {
-         return Collections.emptyList();
+      if (origNodes.size() <= 1) return Collections.emptyList();
+
+      if (!(origNodes.get(0) instanceof Node.Entry)) return Collections.emptyList();
+
+      if (origNodes.get(0).line == origNodes.get(origNodes.size()-1).line) return Collections.emptyList();
+
+      List<Node> nodes = simplifyGraph(origNodes);
+
+      List<Path> paths = new ArrayList<Path>();
+      for (Node node: nodes) {
+         paths.addAll(getAllPrimePathsFromNode(node));
       }
 
-      Entry entryNode = (Entry) nodes.get(0);
-      Path path = new Path(entryNode);
+      if (paths.size() == 1) return new ArrayList<Path>();
 
-      ConditionalSuccessor nextNode = entryNode.nextNode;
+      Node.Entry entry = (Node.Entry)nodes.get(0);
+      entry.primePaths = paths;
 
-      if (nextNode == null) {
-         nextNode = (ConditionalSuccessor) nodes.get(1);
+      return paths;
+      // return getAllPathsFromExitNodes(nodes);
+   }
+
+   private static Stack<Node> simplifyGraph(List<Node> origNodes) {
+      Stack<Node> nodes = new Stack<>();
+
+      for (Node n : origNodes) {
+         if (n instanceof Node.Entry) {
+            nodes.add(n);
+            continue;
+         }
+         if (n.getIncomingNodes().size() == 0) continue;
+
+         Node prev = n.getIncomingNodes().get(0);
+
+         if (prev instanceof Node.Fork || n.getIncomingNodes().size() > 1) {
+            nodes.add(n);
+            continue;
+         }
+
+         if (!prev.fuse(n)) {
+            if (nodes.lastElement() == prev) {
+               nodes.pop().setSimplified();
+            }
+            nodes.push(n);
+         }
       }
 
-      nextNode.addToPath(path);
+      return nodes;
+   }
 
-      return getAllPathsFromExitNodes(nodes);
+   private static List<Path> getAllPrimePathsFromNode(Node node) {
+      if (node instanceof Exit) return new ArrayList<Path>();
+      if (node.getNextConsecutiveNode() == null) return new ArrayList<Path>();
+
+      Path path = new Path(node);
+
+      return getAllPrimePathsFromPath(path);
+   }
+
+   private static List<Path> getAllPrimePathsFromPath(Path path) {
+      ArrayList<Path> paths = new ArrayList<Path>();
+
+      Node lastNode = path.nodes.lastElement();
+
+      if (lastNode instanceof Exit) {
+         if (path.isPrime()) {
+            paths.add(path);
+            return paths;
+         } else
+            return paths;
+      }
+
+      // This should never happen ...
+      if (lastNode.getNextConsecutiveNode() == null) return new ArrayList<Path>();
+
+      int pos = path.nodes.indexOf(lastNode);
+      if (path.nodes.size() > 1 && pos < path.nodes.size()-1) {
+         if (pos == 0) {
+            paths.add(path);
+            return paths;
+         }
+         else if (path.nodes.firstElement() instanceof Node.Entry) {
+            path.nodes.pop();
+            paths.add(path);
+            return paths;
+         }
+         else
+            return new ArrayList<>();
+      } else if (lastNode instanceof Node.SimpleFork) {
+         Node.SimpleFork lastSimpleFork = (Node.SimpleFork) lastNode;
+         Path path1 = new Path(path, false);
+         path1.addNode(lastSimpleFork.getNextConsecutiveNode());
+         Path path2 = new Path(path, false);
+         path2.addNode(lastSimpleFork.getNextNodeAfterJump());
+         List<Path> pathsTotal = getAllPrimePathsFromPath(path1);
+         pathsTotal.addAll(getAllPrimePathsFromPath(path2));
+         return pathsTotal;
+      } else if (lastNode instanceof Node.Goto) {
+         path.addNode(((Node.Goto) lastNode).getNextNodeAfterGoto());
+         return getAllPrimePathsFromPath(path);
+      } else {
+         path.addNode(lastNode.getNextConsecutiveNode());
+         return getAllPrimePathsFromPath(path);
+      }
    }
 
    @Nonnull

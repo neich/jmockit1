@@ -4,12 +4,16 @@
  */
 package mockit.coverage.reporting.pathCoverage;
 
-import java.io.*;
-import java.util.*;
-import javax.annotation.*;
+import mockit.coverage.CoveragePercentage;
+import mockit.coverage.paths.MethodCoverageData;
+import mockit.coverage.paths.Path;
 
-import mockit.coverage.*;
-import mockit.coverage.paths.*;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.io.PrintWriter;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
 
 public final class PathCoverageOutput
 {
@@ -48,6 +52,7 @@ public final class PathCoverageOutput
       if (paths.size() > 1) {
          writeHeaderForAllPaths(methodData);
          pathFormatter.writeInformationForEachPath(paths);
+         // pathFormatter.writeInformationForEachPath(paths);
          writeFooterForAllPaths();
       }
    }
@@ -74,6 +79,7 @@ public final class PathCoverageOutput
    private void writeFooterForAllPaths()
    {
       output.println("      </td>");
+      output.println("      <td class=\"paths\"></td>");
       output.println("    </tr>");
    }
 }

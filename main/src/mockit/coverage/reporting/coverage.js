@@ -3,39 +3,64 @@
  * This file is subject to the terms of the MIT license (see LICENSE.txt).
  */
 var cellShown;
-var lineSegmentIdsShown;
+var pathShown;
+var outlinesStrShown;
 
 function hidePath(cell)
 {
-   if (lineSegmentIdsShown) {
-      setOutlines('none');
+   if (pathShown) {
+      if (outlinesStrShown) {
+         setOutlines('none', outlinesStrShown);
+         outlinesStrShown = null;
+      }
       cellShown.style.outlineWidth = 'thin';
-      lineSegmentIdsShown = null;
+      cellShown.parentNode.nextElementSibling.innerHTML ="";
+      pathShown = null;
 
       var sameCell = cell == cellShown;
       cellShown = null;
+      outlinesStrShown = null;
       return sameCell;
    }
 
    return false;
 }
 
-function setOutlines(outlineStyle)
+function setOutlines(outlineStyle, lineSegmentIds)
 {
-   for (var i = 0; i < lineSegmentIdsShown.length; i++) {
-      var item = document.getElementById(lineSegmentIdsShown[i]);
+   if (outlinesStrShown) {
+      var ids = outlinesStrShown.split(' ');
+      for (var i = 0; i < ids.length; i++) {
+         var item = document.getElementById(ids[i]);
+         if (item) item.style.outline = 'none';
+      }
+   }
+
+   outlinesStrShown = lineSegmentIds;
+
+   var newIds = outlinesStrShown.split(' ');
+   for (var i = 0; i < newIds.length; i++) {
+      var item = document.getElementById(newIds[i]);
       if (item) item.style.outline = outlineStyle;
    }
 }
 
-function showPath(cell, lineSegmentIdsStr)
+function showPath(cell, path, target)
 {
    if (hidePath(cell)) return;
 
-   lineSegmentIdsShown = lineSegmentIdsStr.split(' ');
-   setOutlines('thin dashed #0000FF');
+   var nexttd = cell.parentNode.nextElementSibling;
+   for (var i = 0; i < path.length; i++) {
+      var e = document.createElement('span');
+      e.innerHTML = '<span class="covered" style="outline-width: medium;" onclick="setOutlines(\'thin dashed #0000FF\', \'' + path[i][1] + '\')">' + path[i][0] + '</span>';
+      nexttd.appendChild(e);
+   }
+
    cell.style.outlineWidth = 'medium';
    cellShown = cell;
+   pathShown = path;
+
+
 }
 
 function showHide(callPoints, listIndex)
