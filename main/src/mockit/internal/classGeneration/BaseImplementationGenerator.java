@@ -10,6 +10,8 @@ import static java.lang.reflect.Modifier.*;
 
 import mockit.external.asm.*;
 import mockit.internal.*;
+import mockit.internal.util.*;
+import mockit.internal.util.GenericTypeReflection.*;
 import static mockit.external.asm.Opcodes.*;
 
 @SuppressWarnings("AbstractClassExtendsConcreteClass")
@@ -102,6 +104,44 @@ public abstract class BaseImplementationGenerator extends BaseClassModifier
    protected abstract void generateMethodBody(
       int access, @Nonnull String name, @Nonnull String desc,
       @Nullable String signature, @Nullable String[] exceptions);
+
+   protected final boolean isOverrideOfMethodFromSuperInterface(@Nonnull String name, @Nonnull String desc)
+   {
+      if (!implementedMethods.isEmpty()) {
+         int p = desc.lastIndexOf(')');
+         String descNoReturnType = desc.substring(0, p + 1);
+
+         for (String implementedMethod : implementedMethods) {
+            if (sameMethodName(implementedMethod, name) && implementedMethod.contains(descNoReturnType)) {
+               return true;
+            }
+         }
+      }
+
+      return false;
+   }
+
+   private static boolean sameMethodName(@Nonnull String implementedMethod, @Nonnull String name)
+   {
+      return implementedMethod.startsWith(name) && implementedMethod.charAt(name.length()) == '(';
+   }
+
+   @Nullable
+   protected final String getSubInterfaceOverride(
+      @Nonnull GenericTypeReflection genericTypeMap, @Nonnull String name, @Nonnull String genericSignature)
+   {
+      if (!implementedMethods.isEmpty()) {
+         GenericSignature parsedSignature = genericTypeMap.parseSignature(genericSignature);
+
+         for (String implementedMethod : implementedMethods) {
+            if (sameMethodName(implementedMethod, name) && parsedSignature.satisfiesSignature(implementedMethod)) {
+               return implementedMethod;
+            }
+         }
+      }
+
+      return null;
+   }
 
    private final class MethodGeneratorForImplementedSuperInterface extends ClassVisitor
    {

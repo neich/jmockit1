@@ -38,12 +38,6 @@ public final class JREMockingTest
    }
 
    @Test
-   public void mockFileThenApplyAMockup(@Mocked File file)
-   {
-      new MockUp<Date>() {};
-   }
-
-   @Test
    public void mockingOfCalendar()
    {
       final Calendar calCST = new GregorianCalendar(2010, 4, 15);
@@ -166,7 +160,7 @@ public final class JREMockingTest
 
       new Expectations() {{
          Thread.sleep(anyLong); result = new InterruptedException();
-         onInstance(t).interrupt();
+         t.interrupt();
       }};
 
       assertTrue(t.wasInterruptRequested());

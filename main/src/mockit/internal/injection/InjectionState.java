@@ -16,6 +16,7 @@ import mockit.internal.expectations.mocking.*;
 import mockit.internal.state.*;
 import mockit.internal.util.*;
 import static mockit.internal.injection.InjectionPoint.*;
+import static mockit.internal.util.Utilities.getClassType;
 
 /**
  * Holds state used throughout the injection process while it's in progress for a given set of tested objects.
@@ -27,7 +28,7 @@ final class InjectionState implements BeanExporter
 
    @Nonnull private final Map<InjectionPoint, Object> testedObjects;
    @Nonnull private final Map<InjectionPoint, Object> instantiatedDependencies;
-   @Nonnull private List<InjectionPointProvider> injectables;
+   @Nonnull private List<MockedType> injectables;
    @Nonnull private List<InjectionPointProvider> consumedInjectables;
    @Nonnull final LifecycleMethods lifecycleMethods;
    private GenericTypeReflection testedTypeReflection;
@@ -43,10 +44,10 @@ final class InjectionState implements BeanExporter
       lifecycleMethods = new LifecycleMethods();
    }
 
-   void buildListsOfInjectables(@Nonnull Object testClassInstance, @Nonnull List<InjectionPointProvider> injectables)
+   void buildListsOfInjectables(@Nonnull Object testClassInstance, @Nonnull List<MockedType> injectables)
    {
       currentTestClassInstance = testClassInstance;
-      this.injectables = new ArrayList<InjectionPointProvider>(injectables);
+      this.injectables = new ArrayList<MockedType>(injectables);
 
       ParameterTypeRedefinitions paramTypeRedefs = TestRun.getExecutingTest().getParameterRedefinitions();
 
@@ -99,7 +100,15 @@ final class InjectionState implements BeanExporter
             INJECT_CLASS != null && Provider.class.isAssignableFrom(classOfInjectionPoint)
          ) {
             Type providedType = parameterizedType.getActualTypeArguments()[0];
-            return providedType.equals(injectableType);
+
+            if (providedType.equals(injectableType)) {
+               return true;
+            }
+
+            Class<?> injectableClass = getClassType(injectableType);
+            Class<?> providedClass = getClassType(providedType);
+
+            return providedClass.isAssignableFrom(injectableClass);
          }
       }
 
@@ -107,9 +116,9 @@ final class InjectionState implements BeanExporter
    }
 
    @Nullable
-   InjectionPointProvider findNextInjectableForInjectionPoint()
+   MockedType findNextInjectableForInjectionPoint()
    {
-      for (InjectionPointProvider injectable : injectables) {
+      for (MockedType injectable : injectables) {
          if (hasSameTypeAsInjectionPoint(injectable) && !consumedInjectables.contains(injectable)) {
             return injectable;
          }
@@ -119,11 +128,11 @@ final class InjectionState implements BeanExporter
    }
 
    @Nonnull
-   List<InjectionPointProvider> findInjectablesByType()
+   List<MockedType> findInjectablesByType()
    {
-      List<InjectionPointProvider> found = new ArrayList<InjectionPointProvider>();
+      List<MockedType> found = new ArrayList<MockedType>();
 
-      for (InjectionPointProvider injectable : injectables) {
+      for (MockedType injectable : injectables) {
          if (hasSameTypeAsInjectionPoint(injectable) && !consumedInjectables.contains(injectable)) {
             found.add(injectable);
          }
@@ -142,6 +151,13 @@ final class InjectionState implements BeanExporter
       }
 
       return findInjectableByTypeAndOptionallyName(nameOfInjectionPoint);
+   }
+
+   @Nullable
+   Object getValueForParameterFromTestedField(@Nonnull String nameOfInjectionPoint)
+   {
+      InjectionPoint injectionPoint = new InjectionPoint(typeOfInjectionPoint, nameOfInjectionPoint);
+      return testedObjects.get(injectionPoint);
    }
 
    @Nullable
@@ -164,7 +180,7 @@ final class InjectionState implements BeanExporter
    {
       MultiValuedProvider found = null;
 
-      for (InjectionPointProvider injectable : injectables) {
+      for (MockedType injectable : injectables) {
          Type injectableType = injectable.getDeclaredType();
          Type elementTypeOfIterable = getElementTypeIfIterable(injectableType);
 
@@ -187,11 +203,11 @@ final class InjectionState implements BeanExporter
    }
 
    @Nullable
-   private InjectionPointProvider findInjectableByTypeAndOptionallyName(@Nonnull String nameOfInjectionPoint)
+   private MockedType findInjectableByTypeAndOptionallyName(@Nonnull String nameOfInjectionPoint)
    {
-      InjectionPointProvider found = null;
+      MockedType found = null;
 
-      for (InjectionPointProvider injectable : injectables) {
+      for (MockedType injectable : injectables) {
          if (hasSameTypeAsInjectionPoint(injectable)) {
             if (nameOfInjectionPoint.equals(injectable.getName())) {
                return injectable;
@@ -207,9 +223,9 @@ final class InjectionState implements BeanExporter
    }
 
    @Nullable
-   InjectionPointProvider findInjectableByTypeAndName(@Nonnull String nameOfInjectionPoint)
+   MockedType findInjectableByTypeAndName(@Nonnull String nameOfInjectionPoint)
    {
-      for (InjectionPointProvider injectable : injectables) {
+      for (MockedType injectable : injectables) {
          if (hasSameTypeAsInjectionPoint(injectable) && nameOfInjectionPoint.equals(injectable.getName())) {
             return injectable;
          }

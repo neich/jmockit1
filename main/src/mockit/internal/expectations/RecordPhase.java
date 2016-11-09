@@ -28,6 +28,11 @@ public final class RecordPhase extends TestOnlyPhase
       getCurrentExpectation().addResult(result);
    }
 
+   public void addSequenceOfReturnValues(@Nonnull Object[] values)
+   {
+      getCurrentExpectation().addSequenceOfReturnValues(values);
+   }
+
    public void addSequenceOfReturnValues(@Nullable Object firstValue, @Nullable Object[] remainingValues)
    {
       getCurrentExpectation().addSequenceOfReturnValues(firstValue, remainingValues);
@@ -70,7 +75,7 @@ public final class RecordPhase extends TestOnlyPhase
          recordAndReplay.executionState.addExpectation(currentExpectation, strict);
       }
 
-      return invocation.getDefaultValueForReturnType(this);
+      return invocation.getDefaultValueForReturnType();
    }
 
    @Nullable

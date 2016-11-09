@@ -18,19 +18,17 @@ public final class CascadingTypes
 
    CascadingTypes() { cascadingTypes = new ConcurrentHashMap<String, MockedTypeCascade>(4); }
 
-   public void add(boolean fromMockField, @Nonnull java.lang.reflect.Type mockedType, @Nullable Object cascadedInstance)
+   public void add(boolean fromMockField, @Nonnull java.lang.reflect.Type mockedType)
    {
       Class<?> mockedClass = getClassType(mockedType);
       String mockedTypeDesc = Type.getInternalName(mockedClass);
-      add(mockedTypeDesc, fromMockField, mockedType, cascadedInstance);
+      add(mockedTypeDesc, fromMockField, mockedType);
    }
 
-   void add(
-      @Nonnull String mockedTypeDesc, boolean fromMockField, @Nonnull java.lang.reflect.Type mockedType,
-      @Nullable Object cascadedInstance)
+   void add(@Nonnull String mockedTypeDesc, boolean fromMockField, @Nonnull java.lang.reflect.Type mockedType)
    {
       if (!cascadingTypes.containsKey(mockedTypeDesc)) {
-         cascadingTypes.put(mockedTypeDesc, new MockedTypeCascade(fromMockField, mockedType, cascadedInstance));
+         cascadingTypes.put(mockedTypeDesc, new MockedTypeCascade(fromMockField, mockedType));
       }
    }
 
@@ -54,7 +52,10 @@ public final class CascadingTypes
    private MockedTypeCascade getCascade(@Nonnull String mockedTypeDesc)
    {
       MockedTypeCascade cascade = cascadingTypes.get(mockedTypeDesc);
-      if (cascade != null) return cascade;
+
+      if (cascade != null) {
+         return cascade;
+      }
 
       for (Entry<String, MockedTypeCascade> cascadeEntry : cascadingTypes.entrySet()) {
           String cascadingTypeDesc = cascadeEntry.getKey();
@@ -80,16 +81,36 @@ public final class CascadingTypes
             return null;
          }
 
-         MockedTypeCascade cascade = cascadingTypes.get(typeDesc);
+         MockedTypeCascade cascade = getCascade(typeDesc);
 
          if (cascade != null) {
             cascade.mockedClass = mockedClass;
             return cascade;
          }
 
+         cascade = getCascadeForInterface(invokedTypeDesc, typeToLookFor);
+
+         if (cascade != null) {
+            return cascade;
+         }
+
          typeToLookFor = typeToLookFor.getSuperclass();
       }
       while (typeToLookFor != Object.class);
+
+      return null;
+   }
+
+   @Nullable
+   private MockedTypeCascade getCascadeForInterface(@Nonnull String invokedTypeDesc, @Nonnull Class<?> mockedClass)
+   {
+      for (Class<?> mockedInterface : mockedClass.getInterfaces()) {
+         MockedTypeCascade cascade = getCascade(invokedTypeDesc, mockedInterface);
+
+         if (cascade != null) {
+            return cascade;
+         }
+      }
 
       return null;
    }

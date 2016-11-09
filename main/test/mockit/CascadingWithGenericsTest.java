@@ -125,6 +125,7 @@ public final class CascadingWithGenericsTest
       static <T extends Bar> T bar(@SuppressWarnings("UnusedParameters") Class<T> c) { return null; }
       WithStaticInit staticInit() { return null; }
    }
+
    static class WithStaticInit
    {
       static final Bar T = Factory.bar();
@@ -225,5 +226,53 @@ public final class CascadingWithGenericsTest
       Bar cascadedResult = mock.genericMethod();
 
       assertNotNull(cascadedResult);
+   }
+
+   interface NonPublicInterfaceWithGenericMethod { <T extends Runnable> T doSomething(); }
+
+   @Test
+   public void cascadeFromGenericMethodOfNonPublicInterface(@Mocked NonPublicInterfaceWithGenericMethod mock) {
+      Runnable result = mock.doSomething();
+
+      assertNotNull(result);
+   }
+
+   public interface FactoryInterface { <T> T genericWithClass(Class<T> type); }
+
+   @Test
+   public void cascadeFromGenericMethodWithClassParameterOfMockedInterface(@Mocked FactoryInterface mock)
+   {
+      Foo cascaded = mock.genericWithClass(Foo.class);
+
+      assertNotNull(cascaded);
+   }
+
+   @SuppressWarnings("unused") static class Outer<T> { class Inner {} }
+   static class Client { Outer<String>.Inner doSomething() { return null; } }
+
+   @Test
+   public void cascadeFromMethodReturningInnerInstanceOfGenericClass(@Mocked final Client mock)
+   {
+      final Outer.Inner innerInstance = new Outer().new Inner();
+
+      new Expectations() {{
+         mock.doSomething();
+         result = innerInstance;
+      }};
+
+      assertSame(innerInstance, mock.doSomething());
+   }
+
+   static class SubB<T> extends B<T> {}
+   static class ClassWithMethodReturningGenericClassInstance { SubB<C> doSomething() { return null; } }
+
+   @Test
+   public void cascadeFromMethodReturningInstanceOfGenericSubclassThenFromGenericMethodOfGenericBaseClass(
+      @Mocked ClassWithMethodReturningGenericClassInstance mock)
+   {
+      SubB<C> cascade1 = mock.doSomething();
+      C cascade2 = cascade1.getValue();
+
+      assertNotNull(cascade2);
    }
 }

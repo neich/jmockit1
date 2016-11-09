@@ -29,11 +29,11 @@ final class TestedField
       this.injectionState = injectionState;
       testedField = field;
       this.metadata = metadata;
-      fullInjection = metadata.fullyInitialized() ? new FullInjection(injectionState) : null;
+      fullInjection = metadata.fullyInitialized() ? new FullInjection(injectionState, field) : null;
 
       Class<?> fieldType = field.getType();
 
-      if (fieldType.isInterface()) {
+      if (fieldType.isInterface() || fieldType.isEnum() || fieldType.isPrimitive() || fieldType.isArray()) {
          testedObjectCreation = null;
          testedClass = new TestedClass(field.getGenericType(), field.getType());
       }

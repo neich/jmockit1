@@ -35,10 +35,33 @@ public final class TypeDescriptor
    }
 
    @Nonnull
-   public static Class<?> getReturnType(@Nonnull String methodDesc)
+   public static Class<?> getReturnType(@Nonnull String methodSignature)
    {
+      String methodDesc = methodDescriptionWithoutTypeArguments(methodSignature);
       Type returnType = Type.getReturnType(methodDesc);
       return getClassForType(returnType);
+   }
+
+   @Nonnull
+   private static String methodDescriptionWithoutTypeArguments(@Nonnull String methodSignature)
+   {
+      while (true) {
+         int p = methodSignature.indexOf('<');
+
+         if (p < 0) {
+            return methodSignature;
+         }
+
+         String firstPart = methodSignature.substring(0, p);
+         int q = methodSignature.indexOf('>', p) + 1;
+
+         if (methodSignature.charAt(q) == '.') { // in case there is an inner class
+            methodSignature = firstPart + '$' + methodSignature.substring(q + 1);
+         }
+         else {
+            methodSignature = firstPart + methodSignature.substring(q);
+         }
+      }
    }
 
    @Nonnull
@@ -58,12 +81,6 @@ public final class TypeDescriptor
       else {
          className = type.getClassName();
          assert className != null;
-
-         int p = className.indexOf('<');
-
-         if (p > 0) {
-            className = className.substring(0, p);
-         }
       }
 
       return ClassLoad.loadClass(className);

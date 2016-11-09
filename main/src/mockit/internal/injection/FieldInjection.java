@@ -13,6 +13,7 @@ import static java.util.regex.Pattern.*;
 
 import mockit.internal.util.*;
 import static mockit.internal.injection.InjectionPoint.*;
+import static mockit.internal.injection.InjectionPointProvider.NULL;
 
 final class FieldInjection extends Injector
 {
@@ -73,7 +74,7 @@ final class FieldInjection extends Injector
          return true;
       }
 
-      return !isStatic(modifiers);
+      return !isStatic(modifiers) && !isVolatile(modifiers);
    }
 
    void injectIntoEligibleFields(@Nonnull List<Field> targetFields, @Nonnull Object testedObject)
@@ -86,7 +87,7 @@ final class FieldInjection extends Injector
          if (targetFieldWasNotAssignedByConstructor(testedObject)) {
             Object injectableValue = getValueForFieldIfAvailable(targetFields);
 
-            if (injectableValue != null) {
+            if (injectableValue != null && injectableValue != NULL) {
                injectableValue = wrapInProviderIfNeeded(field.getGenericType(), injectableValue);
                FieldReflection.setFieldValue(field, testedObject, injectableValue);
             }

@@ -4,14 +4,15 @@
  */
 package mockit;
 
+import java.beans.*;
 import java.util.*;
+
+import javax.persistence.*;
 
 import org.junit.*;
 import org.junit.rules.*;
 
 import static org.junit.Assert.*;
-
-import mockit.internal.*;
 
 public final class MisusedExpectationsTest
 {
@@ -24,11 +25,16 @@ public final class MisusedExpectationsTest
       Blah(int i) {}
 
       @SuppressWarnings("RedundantStringConstructorCall") final String name = new String("Blah");
+
       int value() { return -1; }
       void setValue(int value) {}
       String doSomething(boolean b) { return ""; }
       String getName() { return name.toUpperCase(); }
       Blah same() { return this; }
+      Runnable getSomethingElse() { return null; }
+
+      static Object doSomething() { return null; }
+      static Object someValue() { return null; }
    }
 
    @Mocked Blah mock;
@@ -207,15 +213,6 @@ public final class MisusedExpectationsTest
       }};
    }
 
-   @Before
-   public void recordCommonExpectations()
-   {
-      // A "non-strict" expectation.
-      new Expectations() {{
-         mock.doSomething(anyBoolean); minTimes = 0;
-      }};
-   }
-
    @Test
    public void verifiedExpectationWithDuplicateRecordedExpectation()
    {
@@ -266,34 +263,6 @@ public final class MisusedExpectationsTest
    {
       @Override String doSomething(boolean b) { return "overridden"; }
       void doSomethingElse(Object o) {}
-   }
-
-   @Test @SuppressWarnings("UnnecessarySuperQualifier")
-   public void accessSpecialFieldsInExpectationBlockThroughSuper(@Mocked final BlahBlah mock2)
-   {
-      new Expectations() {{
-         mock2.value(); super.result = 123; super.minTimes = 1; super.maxTimes = 2;
-
-         mock2.doSomething(super.anyBoolean); super.result = "test";
-         super.times = 1;
-
-         mock2.setValue(withNotEqual(0));
-      }};
-
-      assertEquals(123, mock2.value());
-      assertEquals("test", mock2.doSomething(true));
-      mock2.setValue(1);
-   }
-
-   @Test @SuppressWarnings("UnnecessarySuperQualifier")
-   public void accessSpecialFieldsInVerificationBlockThroughSuper(@Mocked final BlahBlah mock2)
-   {
-      assertNull(mock2.doSomething(true));
-
-      new Verifications() {{
-         mock2.doSomething(false); super.times = 0;
-         mock2.doSomethingElse(super.any); super.maxTimes = 0;
-      }};
    }
 
    @Test
@@ -502,35 +471,50 @@ public final class MisusedExpectationsTest
    }
 
    @Test
+   public void ambiguousCascadingWhenMultipleValidCandidatesAreAvailable(
+      @Injectable Runnable r1, @Injectable Runnable r2)
+   {
+      Runnable cascaded = mock.getSomethingElse(); // which one to return: r1 or r2?
+
+      assertSame(r2, cascaded); // currently, last mock to be declared wins
+   }
+
+   @Test
    public void recordExpectationWithMinTimesSetToZero()
    {
-      thrown.expect(MissingInvocation.class);
+      thrown.expect(IllegalArgumentException.class);
+      thrown.expectMessage("Invalid");
+      thrown.expectMessage("minTimes");
+      thrown.expectMessage("test method");
+      thrown.expectMessage("named Expectations");
 
       new Expectations() {{
          mock.doSomething(true);
-         minTimes = 0; // gets ignored if set to 0 (or negative) in a test method
+         minTimes = 0; // invalid if set to 0 (or negative) in a test method
       }};
    }
 
    @Test
    public void recordDynamicExpectationWithMinTimesSetToZero()
    {
-      thrown.expect(MissingInvocation.class);
+      thrown.expect(IllegalArgumentException.class);
 
       new Expectations(ProcessBuilder.class) {{
          new ProcessBuilder();
-         minTimes = 0; // gets ignored
+         minTimes = 0; // invalid
       }};
    }
 
    @Test
    public void verifyExpectationWithMinTimesSetToZero()
    {
-      thrown.expect(MissingInvocation.class);
+      thrown.expect(IllegalArgumentException.class);
+      thrown.expectMessage("Invalid minTimes");
+      thrown.expectMessage("test method");
 
       new Verifications() {{
          mock.doSomething(true);
-         minTimes = 0; // gets ignored
+         minTimes = 0; // invalid
       }};
    }
 
@@ -559,6 +543,18 @@ public final class MisusedExpectationsTest
       }};
    }
 
+   @Test
+   public void callMockedMethodFromExpressionAssignedToResultField()
+   {
+      thrown.expect(IllegalArgumentException.class);
+      thrown.expectMessage("Invalid invocation to another mocked method during unfinished recording");
+
+      new Expectations() {{
+         Blah.doSomething();
+         result = Blah.someValue();
+      }};
+   }
+
    // Attempts to mock JRE classes that should never be mocked ////////////////////////////////////////////////////////
 
    @Test
@@ -578,4 +574,34 @@ public final class MisusedExpectationsTest
 
    @Test
    public void attemptToMockHashMap(@Mocked HashMap<?, ?> map) { assertNotNull(map); }
+
+   // Mocking/faking of JPA-annotated classes /////////////////////////////////////////////////////////////////////////
+
+   @Entity static class Person { public int getId() { return 1; } }
+   static class Manager { Person findPerson() { return null; } }
+
+   @Test
+   public void mockClassWithMethodsReturningEntityClasses(@Mocked final Manager mock) throws IntrospectionException
+   {
+      final Person p = new Person();
+      new Expectations() {{ mock.findPerson(); result = p; }};
+
+      Person found = mock.findPerson();
+
+      assertSame(p, found);
+   }
+
+   @Test(expected = IllegalArgumentException.class)
+   public void attemptToMockAnEntityClass(@Injectable Person person) {}
+
+   @Test
+   public void attemptToFakeAnEntityClass()
+   {
+      thrown.expect(IllegalArgumentException.class);
+      thrown.expectMessage("@Entity-annotated class");
+
+      new MockUp<Person>() {
+         @Mock int getId() { return 2; }
+      };
+   }
 }

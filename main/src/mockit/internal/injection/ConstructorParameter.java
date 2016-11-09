@@ -10,24 +10,25 @@ import javax.annotation.*;
 
 import static mockit.internal.util.Utilities.*;
 
-final class ConstructorParameter implements InjectionPointProvider
+final class ConstructorParameter extends InjectionPointProvider
 {
-   @Nonnull private final Type declaredType;
    @Nonnull private final Class<?> classOfDeclaredType;
    @Nonnull private final Annotation[] annotations;
-   @Nonnull private final String name;
+   @Nullable private final Object value;
 
-   ConstructorParameter(@Nonnull Type declaredType, @Nonnull Annotation[] annotations, @Nonnull String name)
+   ConstructorParameter(
+      @Nonnull Type declaredType, @Nonnull Annotation[] annotations, @Nonnull String name, @Nullable Object value)
    {
-      this.declaredType = declaredType;
+      super(declaredType, name);
       classOfDeclaredType = getClassType(declaredType);
       this.annotations = annotations;
-      this.name = name;
+      this.value = value;
    }
 
-   @Nonnull @Override public Type getDeclaredType() { return declaredType; }
-   @Nonnull @Override public Class<?> getClassOfDeclaredType() { return classOfDeclaredType; }
-   @Nonnull @Override public String getName() { return name; }
-   @Nonnull @Override public Annotation[] getAnnotations() { return annotations; }
-   @Nullable @Override public Object getValue(@Nullable Object owner) { return null; }
+   @Nonnull @Override protected Class<?> getClassOfDeclaredType() { return classOfDeclaredType; }
+   @Nonnull @Override Annotation[] getAnnotations() { return annotations; }
+   @Nullable @Override protected Object getValue(@Nullable Object owner) { return value; }
+
+   @Override
+   public String toString() { return "parameter " + super.toString(); }
 }

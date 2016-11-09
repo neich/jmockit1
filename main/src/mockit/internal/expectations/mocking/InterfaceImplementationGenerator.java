@@ -38,14 +38,25 @@ final class InterfaceImplementationGenerator extends BaseImplementationGenerator
    protected void generateMethodBody(
       int access, @Nonnull String name, @Nonnull String desc, @Nullable String signature, @Nullable String[] exceptions)
    {
-      String resolvedSignature = signature;
+      mw = cw.visitMethod(ACC_PUBLIC, name, desc, signature, exceptions);
+
+      String className = null;
 
       if (signature != null) {
-         resolvedSignature = mockedTypeInfo.genericTypeMap.resolveReturnType(methodOwner, signature);
+         String subInterfaceOverride = getSubInterfaceOverride(mockedTypeInfo.genericTypeMap, name, signature);
+
+         if (subInterfaceOverride != null) {
+            className = interfaceName;
+            desc = subInterfaceOverride.substring(name.length());
+            signature = null;
+         }
       }
 
-      mw = cw.visitMethod(ACC_PUBLIC, name, desc, resolvedSignature, exceptions);
-      generateDirectCallToHandler(mw, interfaceName, access, name, desc, resolvedSignature);
+      if (className == null) {
+         className = isOverrideOfMethodFromSuperInterface(name, desc) ? interfaceName : methodOwner;
+      }
+
+      generateDirectCallToHandler(mw, className, access, name, desc, signature);
       generateReturnWithObjectAtTopOfTheStack(desc);
       mw.visitMaxs(1, 0);
    }

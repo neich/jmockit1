@@ -4,6 +4,7 @@
  */
 package mockit.internal.expectations;
 
+import java.util.*;
 import javax.annotation.*;
 
 import mockit.internal.expectations.invocation.*;
@@ -46,7 +47,7 @@ final class Expectation
    Object produceResult(@Nullable Object invokedObject, @Nonnull Object[] invocationArgs) throws Throwable
    {
       if (results == null) {
-         return invocation.getDefaultValueForReturnType(null);
+         return invocation.getDefaultValueForReturnType();
       }
 
       return results.produceResult(invokedObject, invocationArgs);
@@ -55,13 +56,37 @@ final class Expectation
    @Nonnull
    Class<?> getReturnType()
    {
-      return TypeDescriptor.getReturnType(invocation.getSignatureWithResolvedReturnType());
+      String resolvedReturnType = invocation.getSignatureWithResolvedReturnType();
+      return TypeDescriptor.getReturnType(resolvedReturnType);
    }
 
    void clearNextInstanceToMatchIfRecording()
    {
       if (recordPhase != null) {
          recordPhase.setNextInstanceToMatch(null);
+      }
+   }
+
+   void addSequenceOfReturnValues(@Nonnull Object[] values)
+   {
+      if (invocation.isConstructor()) {
+         throw new IllegalArgumentException("Invalid recording for a constructor");
+      }
+
+      if (invocation.getMethodNameAndDescription().endsWith(")V")) {
+         throw new IllegalArgumentException("Invalid recording for a void method");
+      }
+
+      int n = values.length - 1;
+      Object firstValue = values[0];
+      Object[] remainingValues = new Object[n];
+      System.arraycopy(values, 1, remainingValues, 0, n);
+
+      InvocationResults sequence = getResults();
+
+      if (!new SequenceOfReturnValues(this, firstValue, remainingValues).addResultWithSequenceOfValues()) {
+         sequence.addReturnValue(firstValue);
+         sequence.addReturnValues(remainingValues);
       }
    }
 
@@ -100,6 +125,11 @@ final class Expectation
          getResults().addReturnValueResult(null);
       }
       else if (isReplacementInstance(value)) {
+         if (recordPhase != null) {
+            Map<Object, Object> replacementMap = recordPhase.getReplacementMap();
+            replacementMap.put(invocation.instance, value);
+         }
+
          invocation.replacementInstance = value;
       }
       else if (value instanceof Throwable) {

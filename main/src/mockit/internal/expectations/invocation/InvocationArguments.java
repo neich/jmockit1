@@ -16,8 +16,6 @@ import mockit.internal.util.*;
 
 public final class InvocationArguments
 {
-   @Nonnull private static final String EOL = System.getProperty("line.separator");
-
    @Nonnull final String classDesc;
    @Nonnull final String methodNameAndDesc;
    @Nullable final String genericSignature;
@@ -130,16 +128,18 @@ public final class InvocationArguments
       catch (NoSuchMethodException e) { throw new RuntimeException(e); }
 
       if (equalsMethod.getDeclaringClass() == Object.class) {
-         message.append(EOL);
-         message.append("   Warning: argument class ").append(argClass.getName()).append(" has no \"equals\" method");
+         message.append("\n   Warning: argument class ").append(argClass.getName()).append(" has no \"equals\" method");
       }
    }
 
    @Override
    public String toString()
    {
-      MethodFormatter methodFormatter = new MethodFormatter(classDesc, methodNameAndDesc);
-      return valuesAndMatchers.toString(methodFormatter);
+      MethodFormatter methodFormatter = new MethodFormatter(classDesc, methodNameAndDesc, false);
+      List<String> parameterTypes = methodFormatter.getParameterTypes();
+      String arguments = valuesAndMatchers.toString(parameterTypes);
+      methodFormatter.append(arguments);
+      return methodFormatter.toString();
    }
 
    public boolean hasEquivalentMatchers(@Nonnull InvocationArguments other)
