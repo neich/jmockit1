@@ -6,3 +6,30 @@ How to build the project:
     1. main/pom.xml            builds jmockit-1.n.jar, running JUnit and TestNG test suites
     2. coverageTests/pom.xml   runs JUnit tests for the coverage tool
     3. others in samples       dir various sample test suites
+    
+In order to use this version of jmockit with maven, you have to add the following to your pom.xml:
+
+1. the github respository:
+
+```xml
+	<repositories>
+		<repository>
+			<id>jmockit1-mvn-repo</id>
+			<url>https://raw.github.com/neich/jmockit1/mvn-repo/</url>
+			<snapshots>
+				<enabled>true</enabled>
+				<updatePolicy>always</updatePolicy>
+			</snapshots>
+		</repository>
+	</repositories>
+```
+
+2. and then the dependency:
+
+```xml
+		<dependency>
+			<groupId>org.jmockit</groupId>
+			<artifactId>jmockit</artifactId>
+			<version>1.28</version>
+		</dependency>
+```
