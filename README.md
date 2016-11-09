@@ -9,7 +9,7 @@ How to build the project:
     
 In order to use this version of jmockit with maven, you have to add the following to your pom.xml:
 
-1. the github respository:
+* the github respository:
 
 ```xml
 	<repositories>
@@ -24,7 +24,7 @@ In order to use this version of jmockit with maven, you have to add the followin
 	</repositories>
 ```
 
-2. and then the dependency:
+* and then the dependency:
 
 ```xml
 		<dependency>
