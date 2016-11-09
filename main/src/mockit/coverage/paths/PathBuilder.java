@@ -25,7 +25,11 @@ final class PathBuilder
 
       if (origNodes.get(0).line == origNodes.get(origNodes.size()-1).line) return Collections.emptyList();
 
-      List<Node> nodes = simplifyGraph(origNodes);
+      final List<Node> nodes = simplifyGraph(origNodes);
+
+      if (nodes.size() == 1) {
+         return Collections.emptyList();
+      }
 
       List<Path> paths = new ArrayList<Path>();
       for (Node node: nodes) {
@@ -58,19 +62,23 @@ final class PathBuilder
             continue;
          }
 
-         if (!prev.fuse(n)) {
-            if (nodes.lastElement() == prev) {
-               nodes.pop().setSimplified();
+         if (!(prev instanceof Node.Entry)) {
+            if (!prev.fuse(n)) {
+               if (nodes.lastElement() == prev) {
+                  nodes.pop().setSimplified();
+               }
+               nodes.push(n);
+            } else {
+               n.setSimplified();
             }
-            nodes.push(n);
-         }
+         } else nodes.push(n);
       }
 
       return nodes;
    }
 
    private static List<Path> getAllPrimePathsFromNode(Node node) {
-      if (node instanceof Exit) return new ArrayList<Path>();
+      // if (node instanceof Exit) return new ArrayList<Path>();
       if (node.getNextConsecutiveNode() == null) return new ArrayList<Path>();
 
       Path path = new Path(node);

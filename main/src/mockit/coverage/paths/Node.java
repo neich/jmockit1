@@ -63,8 +63,10 @@ public class Node implements Serializable
 
       if (nextConsecutiveNode != null) {
          nextConsecutiveNode.removeIncomingNode(this);
-         newNode.removeIncomingNode(nextConsecutiveNode);
-         newNode.addIncomingNode(this);
+         if (newNode != null) {
+            newNode.removeIncomingNode(nextConsecutiveNode);
+            newNode.addIncomingNode(this);
+         }
          this.extraLineSegments.add(new LineSegment(nextConsecutiveNode.line, nextConsecutiveNode.segment));
 
       }
@@ -72,7 +74,7 @@ public class Node implements Serializable
    }
 
    public boolean fuse(Node n) {
-      if (n instanceof Fork || n instanceof Exit) {
+      if (n instanceof Fork || (n instanceof Exit && !(this instanceof Entry))) {
          n.moveIncomingNodes(this);
          n.extraLineSegments.addAll(this.getExtraLineSegments());
          return false;
