@@ -746,7 +746,15 @@ final class CoverageModifier extends ClassVisitor
          @Nonnull Label start, @Nonnull Label end, @Nonnull Label handler, @Nullable String type)
       {
          super.visitTryCatchBlock(start, end, handler, type);
-         handleRegularInstruction(0);
+         handleTryCatch(start, end, handler, type);
+      }
+
+      private void handleTryCatch(Label start, Label end, Label handler, String type) {
+         if (nodeBuilder != null && ignoreUntilNextSwitch == 0) {
+            int nodeIndex = nodeBuilder.handleTryCatch(currentLine, start, end, handler, type);
+            generateCallToRegisterNodeReached(nodeIndex);
+         }
+
       }
 
       @Override

@@ -21,6 +21,7 @@ public final class NodeBuilder
    @Nullable private SimpleFork currentSimpleFork;
    @Nullable private BasicBlock currentBasicBlock;
    @Nullable private Join currentJoin;
+   @Nullable private Label currentTryCatchHandler;
    @Nonnull private final Map<Label, List<Fork>> jumpTargetToForks = new LinkedHashMap<Label, List<Fork>>();
    @Nonnull private final Map<Label, List<Goto>> gotoTargetToSuccessors =
       new LinkedHashMap<Label, List<Goto>>();
@@ -60,6 +61,11 @@ public final class NodeBuilder
 
    public int handleRegularInstruction(int line, int opcode)
    {
+      // if inside a try/catch block, create a fork if instruction can potentially throw an exception
+      if (currentTryCatchHandler != null && opcode >= 182 && opcode <= 186) {
+         return handleJump(currentTryCatchHandler, line, true);
+      }
+
       if (currentSimpleFork == null) {
          potentiallyTrivialJump = 0;
          return -1;
@@ -77,7 +83,7 @@ public final class NodeBuilder
    {
       if (conditional) {
          SimpleFork newFork = new SimpleFork(line);
-         assert currentSimpleFork == null;
+         // assert currentSimpleFork == null;
          connectNodes(targetBlock, newFork);
          currentSimpleFork = newFork;
          potentiallyTrivialJump = 1;
@@ -100,11 +106,20 @@ public final class NodeBuilder
       }
 */
 
+      if (currentTryCatchHandler == basicBlock) {
+         currentTryCatchHandler = null;
+      }
+
       Join newNode = new Join(line);
       labelToJoin.put(basicBlock, newNode);
       connectNodes(basicBlock, newNode);
 
       return addNewNode(newNode);
+   }
+
+   public int handleTryCatch(int line, Label start, Label end, Label handler, String type) {
+      currentTryCatchHandler = handler;
+      return -1;
    }
 
    private boolean isNewLineTarget(@Nonnull Label basicBlock)
