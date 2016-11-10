@@ -7,6 +7,9 @@ How to build the project:
     2. coverageTests/pom.xml   runs JUnit tests for the coverage tool
     3. others in samples       dir various sample test suites
     
+In this version of the library, if you select path coverage, you will get prime path coverage. The old path coverage is gone.
+
+
 In order to use this version of jmockit with maven, you have to add the following to your pom.xml:
 
 * the github respository:
