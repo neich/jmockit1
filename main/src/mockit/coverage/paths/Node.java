@@ -31,7 +31,7 @@ public class Node implements Serializable
    protected int segment;
    protected List<LineSegment> extraLineSegments = new ArrayList<>();
    protected List<Node> incomingNodes = new ArrayList<Node>();
-   protected boolean isSimplified = false;
+   protected Node subsumedBy = null;
 
    @Nullable protected Node nextConsecutiveNode;
 
@@ -40,10 +40,12 @@ public class Node implements Serializable
    }
 
    public boolean isSimplified() {
-      return isSimplified;
+      return subsumedBy != null;
    }
 
-   public void setSimplified() { this.isSimplified = true; }
+   public void setSubsumedBy(Node n) { this.subsumedBy = n; }
+
+   public Node getSubsumedBy() { return subsumedBy; }
 
    @Nullable
    public Node getNextConsecutiveNode() {
