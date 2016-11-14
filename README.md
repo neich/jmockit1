@@ -33,6 +33,6 @@ In order to use this version of jmockit with maven, you have to add the followin
 		<dependency>
 			<groupId>org.jmockit</groupId>
 			<artifactId>jmockit</artifactId>
-			<version>1.28</version>
+			<version>1.29</version>
 		</dependency>
 ```
