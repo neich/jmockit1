@@ -19,7 +19,7 @@ public final class MethodCoverageData implements Serializable
    private int lastLine;
 
    // Helper fields used during node building and path execution:
-   @Nonnull private final transient ThreadLocal<List<Node>> nodesReached;
+   @Nonnull private final transient ThreadLocal<List<Node>> testPath;
    @Nonnull private final transient ThreadLocal<Integer> previousNodeIndex;
 
    @Nonnull public List<Path> paths;
@@ -30,7 +30,7 @@ public final class MethodCoverageData implements Serializable
       nodes = Collections.emptyList();
       paths = Collections.emptyList();
       nonShadowedPaths = Collections.emptyList();
-      nodesReached = new ThreadLocal<List<Node>>();
+      testPath = new ThreadLocal<List<Node>>();
       previousNodeIndex = new ThreadLocal<Integer>();
       clearNodes();
    }
@@ -66,20 +66,23 @@ public final class MethodCoverageData implements Serializable
       }
 
       Node node = nodes.get(nodeIndex);
-      List<Node> currentNodesReached = nodesReached.get();
+      List<Node> testPathNodes = testPath.get();
 
-      node.setReached(Boolean.TRUE);
-      if (!node.isSimplified() && (node instanceof Node.Entry || node.getIncomingNodes().size() > 0))
-         currentNodesReached.add(node);
+      if (node instanceof Node.Entry || node.getIncomingNodes().size() > 0) {
+         Node n = node.isSimplified() ? node.subsumedBy : node;
+         n.setReached(Boolean.TRUE);
+         if (testPathNodes.size() == 0 || testPathNodes.get(testPathNodes.size()-1) != n)
+            testPathNodes.add(n);
+      }
 
       int previousExecutionCount = -1;
       if (node instanceof Node.Exit) {
-         Node start = currentNodesReached.get(0);
+         Node start = testPathNodes.get(0);
          if (start instanceof Node.Entry) {
             Node.Entry startNode = (Node.Entry) start;
 
             for (Path path : startNode.primePaths) {
-               int previousExecutionCountPath = path.countExecutionIfAllNodesWereReached(currentNodesReached);
+               int previousExecutionCountPath = path.countExecutionIfAllNodesWereReached(testPathNodes);
 
                if (previousExecutionCountPath == 0) {
                   previousExecutionCount = 0;
@@ -98,7 +101,7 @@ public final class MethodCoverageData implements Serializable
          node.setReached(null);
       }
 
-      nodesReached.set(new ArrayList<Node>());
+      testPath.set(new ArrayList<Node>());
       previousNodeIndex.set(0);
    }
 
