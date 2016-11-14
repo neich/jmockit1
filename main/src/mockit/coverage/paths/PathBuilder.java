@@ -64,12 +64,11 @@ final class PathBuilder
 
          if (!(prev instanceof Node.Entry)) {
             if (!prev.fuse(n)) {
-               if (nodes.lastElement() == prev) {
-                  nodes.pop().setSimplified();
-               }
+               nodes.remove(prev);
+               prev.setSubsumedBy(n);
                nodes.push(n);
             } else {
-               n.setSimplified();
+               n.setSubsumedBy(prev);
             }
          } else nodes.push(n);
       }
