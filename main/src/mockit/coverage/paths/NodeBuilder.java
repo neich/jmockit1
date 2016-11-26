@@ -21,13 +21,15 @@ public final class NodeBuilder
    @Nullable private SimpleFork currentSimpleFork;
    @Nullable private BasicBlock currentBasicBlock;
    @Nullable private Join currentJoin;
-   @Nullable private Label currentTryCatchHandler;
+   @Nullable private Map<Class<?>, Label> catch2label = new HashMap<>();
+   @Nullable private Map<Label, Class<?>> label2catch = new HashMap<>();
    @Nonnull private final Map<Label, List<Fork>> jumpTargetToForks = new LinkedHashMap<Label, List<Fork>>();
    @Nonnull private final Map<Label, List<Goto>> gotoTargetToSuccessors =
       new LinkedHashMap<Label, List<Goto>>();
    @Nonnull private final Map<Label, Join> labelToJoin = new LinkedHashMap<Label, Join>();
 
    private int potentiallyTrivialJump;
+   private Node nodeExitException = null;
 
    public void handleEntry(int line)
    {
@@ -61,11 +63,6 @@ public final class NodeBuilder
 
    public int handleRegularInstruction(int line, int opcode)
    {
-      // if inside a try/catch block, create a fork if instruction can potentially throw an exception
-      if (currentTryCatchHandler != null && opcode >= 182 && opcode <= 186) {
-         return handleJump(currentTryCatchHandler, line, true);
-      }
-
       if (currentSimpleFork == null) {
          potentiallyTrivialJump = 0;
          return -1;
@@ -77,6 +74,31 @@ public final class NodeBuilder
       connectNodes(newNode, opcode);
 
       return addNewNode(newNode);
+   }
+
+   public int handleMethodCall(int line, Class<?>[] exceptions) {
+      if (catch2label.size() == 0) {
+         // Not inside a try catch block
+         if (nodeExitException == null) {
+            nodeExitException = new Node.Exit(-1);
+            addNewNode(nodeExitException);
+         }
+         SimpleFork newFork = new SimpleFork(line);
+         // assert currentSimpleFork == null;
+         connectNodes(newFork, nodeExitException);
+         currentSimpleFork = newFork;
+         potentiallyTrivialJump = 1;
+         return addNewNode(newFork);
+
+      } else {
+         for (Class<?> c : exceptions) {
+            if (catch2label.containsKey(c)) {
+               handleJump(catch2label.get(c), line, true);
+            }
+         }
+      }
+
+      return -1;
    }
 
    public int handleJump(@Nonnull Label targetBlock, int line, boolean conditional)
@@ -97,7 +119,7 @@ public final class NodeBuilder
 
    }
 
-   public int handleJumpTarget(@Nonnull Label basicBlock, int line)
+   public int handleJumpTarget(@Nonnull Label jumpTarget, int line)
    {
       // Ignore for visitLabel calls preceding visitLineNumber:
 /*
@@ -106,19 +128,31 @@ public final class NodeBuilder
       }
 */
 
-      if (currentTryCatchHandler == basicBlock) {
-         currentTryCatchHandler = null;
+
+      if (label2catch.containsKey(jumpTarget)) {
+         Class<?> clazz = label2catch.get(jumpTarget);
+         label2catch.remove(jumpTarget);
+         catch2label.remove(clazz);
       }
 
+
       Join newNode = new Join(line);
-      labelToJoin.put(basicBlock, newNode);
-      connectNodes(basicBlock, newNode);
+      labelToJoin.put(jumpTarget, newNode);
+      connectNodes(jumpTarget, newNode);
 
       return addNewNode(newNode);
    }
 
    public int handleTryCatch(int line, Label start, Label end, Label handler, String type) {
-      currentTryCatchHandler = handler;
+      if (type != null) {
+         try {
+            Class<?> eclazz = Class.forName(type.replace('/', '.'), false, this.getClass().getClassLoader());
+            catch2label.put(eclazz, handler);
+            label2catch.put(handler, eclazz);
+         } catch (ClassNotFoundException e) {
+         }
+      }
+
       return -1;
    }
 
@@ -169,6 +203,11 @@ public final class NodeBuilder
       }
       else
          setUpMappingFromConditionalTargetToFork(targetBlock, newFork);
+      connectNodes(newFork);
+   }
+
+   private void connectNodes(SimpleFork newFork, Node nodeExitException) {
+      newFork.addNextNode(nodeExitException);
       connectNodes(newFork);
    }
 
