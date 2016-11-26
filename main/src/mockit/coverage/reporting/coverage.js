@@ -51,7 +51,7 @@ function showPath(cell, path, target)
 
    var nexttd = cell.parentNode.nextElementSibling;
    for (var i = 0; i < path.length; i++) {
-      var e = document.createElement('span');
+      var e = document.createElement('div');
       e.innerHTML = '<span class="covered" style="outline-width: medium;" onclick="setOutlines(\'thin dashed #0000FF\', \'' + path[i][1] + '\')">' + path[i][0] + '</span>';
       nexttd.appendChild(e);
    }
