@@ -43,7 +43,17 @@
 
    <properties>
       <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+         <!-- github server corresponds to entry in ~/.m2/settings.xml -->
+         <github.global.server>github</github.global.server>
    </properties>
+
+   <distributionManagement>
+      <repository>
+         <id>internal.repo</id>
+         <name>Temporary Staging Repository</name>
+         <url>file://${project.build.directory}/mvn-repo</url>
+      </repository>
+   </distributionManagement>
 
    <build>
       <sourceDirectory>src</sourceDirectory>
@@ -79,6 +89,13 @@
          </testResource>
       </testResources>
       <plugins>
+            <plugin>
+               <artifactId>maven-deploy-plugin</artifactId>
+               <version>2.8.1</version>
+               <configuration>
+                  <altDeploymentRepository>internal.repo::default::file://${project.build.directory}/mvn-repo</altDeploymentRepository>
+               </configuration>
+            </plugin>
          <plugin>
             <artifactId>maven-enforcer-plugin</artifactId><version>1.4.1</version>
             <executions>
@@ -98,7 +115,7 @@
             <artifactId>maven-compiler-plugin</artifactId><version>3.5.1</version>
             <configuration>
                <encoding>UTF-8</encoding>
-               <source>1.6</source><target>1.6</target>
+               <source>1.7</source><target>1.7</target>
                <compilerArgs><arg>-Xlint:none</arg></compilerArgs>
                <useIncrementalCompilation>false</useIncrementalCompilation>
             </configuration>
@@ -219,6 +236,7 @@
                </execution>
             </executions>
          </plugin>
+<!--
          <plugin>
             <groupId>org.sonatype.plugins</groupId><artifactId>nexus-staging-maven-plugin</artifactId>
             <version>1.6.7</version>
@@ -228,6 +246,58 @@
                <nexusUrl>https://oss.sonatype.org/</nexusUrl>
                <autoReleaseAfterClose>true</autoReleaseAfterClose>
             </configuration>
+         </plugin>
+-->
+<!--
+         <plugin>
+            &lt;!&ndash; Deploy the web site &ndash;&gt;
+            <groupId>com.github.github</groupId>
+            <artifactId>site-maven-plugin</artifactId>
+            <version>0.12</version>
+            <executions>
+               <execution>
+                  <goals>
+                     <goal>site</goal>
+                  </goals>
+                  &lt;!&ndash; select the Maven phase in which the plugin will be executed &ndash;&gt;
+                  <phase>site-deploy</phase>
+                  <configuration>
+                     &lt;!&ndash; Plugin configuration ges here &ndash;&gt;
+
+                     <server>github</server>
+
+                     &lt;!&ndash; The commit message &ndash;&gt;
+                     <message>Building site for my project</message>
+                     &lt;!&ndash; The location where the site is uploaded &ndash;&gt;
+                     &lt;!&ndash; Use merge or override the content &ndash;&gt;
+                     <merge>true</merge>
+                  </configuration>
+               </execution>
+            </executions>
+         </plugin>
+-->
+         <plugin>
+            <groupId>com.github.github</groupId>
+            <artifactId>site-maven-plugin</artifactId>
+            <version>0.11</version>
+            <configuration>
+               <message>Maven artifacts for ${project.version}</message>  <!-- git commit message -->
+               <noJekyll>true</noJekyll>                                  <!-- disable webpage processing -->
+               <outputDirectory>${project.build.directory}/mvn-repo</outputDirectory> <!-- matches distribution management repository url above -->
+               <branch>refs/heads/mvn-repo</branch>                       <!-- remote branch name -->
+               <includes><include>**/*</include></includes>
+               <repositoryName>jmockit1</repositoryName>      <!-- github repo name -->
+               <repositoryOwner>neich</repositoryOwner>    <!-- github username  -->
+            </configuration>
+            <executions>
+               <!-- run site-maven-plugin's 'site' target as part of the build's normal 'deploy' phase -->
+               <execution>
+                  <goals>
+                     <goal>site</goal>
+                  </goals>
+                  <phase>deploy</phase>
+               </execution>
+            </executions>
          </plugin>
       </plugins>
    </build>
