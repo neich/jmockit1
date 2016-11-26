@@ -17,7 +17,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Method;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static mockit.coverage.Metrics.DataCoverage;
 import static mockit.coverage.Metrics.PathCoverage;
@@ -617,6 +620,15 @@ final class CoverageModifier extends ClassVisitor
          }
       }
 
+      private void handleMethodCall(int opcode, Class<?>[] exceptions)
+      {
+         assert exceptions != null;
+         if (nodeBuilder != null && ignoreUntilNextSwitch == 0) {
+            int nodeIndex = nodeBuilder.handleMethodCall(currentLine, exceptions);
+            generateCallToRegisterNodeReached(nodeIndex);
+         }
+      }
+
       @Override
       public final void visitIntInsn(int opcode, int operand)
       {
@@ -738,7 +750,53 @@ final class CoverageModifier extends ClassVisitor
          int opcode, @Nonnull String owner, @Nonnull String name, @Nonnull String desc, boolean itf)
       {
          super.visitMethodInsn(opcode, owner, name, desc, itf);
-         handleRegularInstruction(opcode);
+
+         if (name.equals("<init>")) {
+            handleRegularInstruction(opcode);
+            return;
+         }
+
+         Pattern pattern = Pattern.compile("\\((L[^;]+;|[ZBCSIFDJV])*\\)");
+         List<String> parameters = new ArrayList<>();
+         Matcher matcher = pattern.matcher(desc);
+         while (matcher.find()) {
+            String group = matcher.group(1);
+            if (group != null) parameters.add(group);
+         }
+         try {
+            Class<?> clazz = Class.forName(owner.replace('/', '.'), false, ClassLoader.getSystemClassLoader());
+            List<Class<?>> cparams = new ArrayList<>();
+            for (String p : parameters) {
+               if (p.charAt(0) == 'L') {
+                  Class<?> pclazz = Class.forName(p.substring(1, p.length()-1).replace('/', '.'), false, ClassLoader.getSystemClassLoader());
+                  cparams.add(pclazz);
+               }
+            }
+            Method[] ms = clazz.getMethods();
+            for (Method m : ms) {
+               if (!m.getName().equals(name)) continue;
+               Class<?>[] mParams = m.getParameterTypes();
+               if (mParams.length != cparams.size()) continue;
+               boolean sameParams = true;
+               for (int i = 0; i < cparams.size(); ++i) {
+                  if (!mParams[0].equals(cparams.get(i))) {
+                     sameParams = false;
+                     break;
+                  }
+               }
+               if (sameParams) {
+                  Class<?>[] exceptions = m.getExceptionTypes();
+                  if (exceptions.length > 0)
+                     handleMethodCall(opcode, exceptions);
+                  else
+                     handleRegularInstruction(opcode);
+               }
+            }
+         } catch (Exception e) {
+            handleRegularInstruction(opcode);
+         }
+
+
       }
 
       @Override
