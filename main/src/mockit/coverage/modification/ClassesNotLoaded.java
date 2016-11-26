@@ -4,10 +4,11 @@
  */
 package mockit.coverage.modification;
 
-import java.io.*;
-import java.security.*;
-import java.util.*;
-import javax.annotation.*;
+import javax.annotation.Nonnull;
+import java.io.File;
+import java.security.ProtectionDomain;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Finds and loads all classes that should also be measured, but were not loaded until now.
@@ -71,5 +72,6 @@ public final class ClassesNotLoaded
       }
       catch (ClassNotFoundException ignore) {}
       catch (NoClassDefFoundError ignored) {}
+      catch (LinkageError e) {}
    }
 }
