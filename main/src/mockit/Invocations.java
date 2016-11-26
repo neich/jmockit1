@@ -20,7 +20,7 @@ import org.hamcrest.Matcher;
  * Provides common API for use inside {@linkplain Expectations expectation} and {@linkplain Verifications verification}
  * blocks.
  */
-@SuppressWarnings({"ConstantConditions", "ClassWithTooManyFields"})
+@SuppressWarnings("ClassWithTooManyFields")
 abstract class Invocations
 {
    static { Startup.verifyInitialization(); }
@@ -359,36 +359,7 @@ abstract class Invocations
     */
    protected int maxTimes;
 
-   @Nonnull abstract TestOnlyPhase getCurrentPhase();
-
-   /**
-    * Calling this method causes the expectation recorded/verified on the given mocked instance to match only those
-    * invocations that occur on the <em>same</em> instance, at replay time.
-    * <p/>
-    * By default, such instances can be different between the replay phase and the record or verify phase, even though
-    * the method or constructor invoked is the same, and the invocation arguments all match.
-    * The use of this method allows invocations to also be matched on the instance invoked.
-    * <p/>
-    * Typically, tests that need to match instance invocations on the mocked instances invoked will declare two or more
-    * mock fields and/or mock parameters of the exact same mocked type.
-    * These instances will then be passed to the code under test, which will invoke them during the replay phase.
-    * To avoid the need to explicitly call {@code onInstance(Object)} on each of these different instances of the
-    * same type, instance matching is <em>implied</em> (and automatically applied to all relevant invocations) whenever
-    * two or more mocked instances of the same type are in scope for a given test method.
-    *
-    * @return the given mocked instance
-    * @deprecated Either use {@linkplain Injectable @Injectable}'s or multiple mock fields/parameters of the same type.
-    */
-   @Deprecated
-   protected final <T> T onInstance(T mockedInstance)
-   {
-      if (mockedInstance == null) {
-         throw new NullPointerException("Missing mocked instance to match");
-      }
-
-      getCurrentPhase().setNextInstanceToMatch(mockedInstance);
-      return mockedInstance;
-   }
+   @Nullable abstract TestOnlyPhase getCurrentPhase();
 
    // Methods for argument matching ///////////////////////////////////////////////////////////////////////////////////
 
@@ -416,9 +387,8 @@ abstract class Invocations
       HamcrestAdapter matcher = new HamcrestAdapter(argumentMatcher);
       addMatcher(matcher);
 
-      Object argValue = matcher.getInnerValue();
-      //noinspection unchecked
-      return (T) argValue;
+      @SuppressWarnings("unchecked") T argValue = (T) matcher.getInnerValue();
+      return argValue;
    }
 
    /**
@@ -476,7 +446,11 @@ abstract class Invocations
 
    private void addMatcher(@Nonnull ArgumentMatcher<?> matcher)
    {
-      getCurrentPhase().addArgMatcher(matcher);
+      TestOnlyPhase currentPhase = getCurrentPhase();
+
+      if (currentPhase != null) {
+         currentPhase.addArgMatcher(matcher);
+      }
    }
 
    /**
@@ -580,8 +554,13 @@ abstract class Invocations
     */
    protected final <T> T withEqual(T arg)
    {
-      Map<Object, Object> instanceMap = getCurrentPhase().getInstanceMap();
-      addMatcher(new LenientEqualityMatcher(arg, instanceMap));
+      TestOnlyPhase currentPhase = getCurrentPhase();
+
+      if (currentPhase != null) {
+         Map<Object, Object> instanceMap = currentPhase.getInstanceMap();
+         addMatcher(new LenientEqualityMatcher(arg, instanceMap));
+      }
+
       return arg;
    }
 

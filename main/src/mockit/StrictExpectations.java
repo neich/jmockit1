@@ -4,6 +4,8 @@
  */
 package mockit;
 
+import mockit.internal.expectations.*;
+
 /**
  * Used to record <em>strict</em> expectations on {@linkplain Mocked mocked} types and their instances.
  * <p/>
@@ -18,7 +20,6 @@ package mockit;
  *
  * @see #StrictExpectations()
  * @see #StrictExpectations(Object...)
- * @see #StrictExpectations(Integer, Object...)
  * @see <a href="http://jmockit.org/tutorial/Mocking.html#strictness">Tutorial</a>
  */
 public abstract class StrictExpectations extends Expectations
@@ -28,7 +29,6 @@ public abstract class StrictExpectations extends Expectations
     * inside the instance initialization body of an anonymous subclass or the called constructor of a named subclass.
     *
     * @see #StrictExpectations(Object...)
-    * @see #StrictExpectations(Integer, Object...)
     */
    protected StrictExpectations() {}
 
@@ -74,10 +74,18 @@ public abstract class StrictExpectations extends Expectations
     * @param classesOrObjectsToBePartiallyMocked one or more classes or objects whose classes are to be partially mocked
     *
     * @see #StrictExpectations()
+    * @deprecated Will be removed in a future release; existing tests should be simplified in order to not depend on
+    * iterated expectations, or eliminated altogether.
     */
+   @Deprecated
    protected StrictExpectations(Integer numberOfIterations, Object... classesOrObjectsToBePartiallyMocked)
    {
       super(classesOrObjectsToBePartiallyMocked);
-      getCurrentPhase().setNumberOfIterations(numberOfIterations);
+
+      RecordPhase currentPhase = getCurrentPhase();
+
+      if (currentPhase != null) {
+         currentPhase.setNumberOfIterations(numberOfIterations);
+      }
    }
 }

@@ -73,7 +73,6 @@ import mockit.internal.expectations.*;
  *
  * @see #Expectations()
  * @see #Expectations(Object...)
- * @see #Expectations(Integer, Object...)
  * @see <a href="http://jmockit.org/tutorial/Mocking.html#expectation">Tutorial</a>
  */
 public abstract class Expectations extends Invocations
@@ -143,7 +142,6 @@ public abstract class Expectations extends Invocations
     * the instance initialization body of an anonymous subclass or the called constructor of a named subclass.
     *
     * @see #Expectations(Object...)
-    * @see #Expectations(Integer, Object...)
     */
    protected Expectations()
    {
@@ -172,7 +170,6 @@ public abstract class Expectations extends Invocations
     * primitive/wrapper type, or a {@linkplain java.lang.reflect.Proxy#isProxyClass(Class) proxy class} created for an
     * interface, or if given a value/instance of such a type
     * 
-    * @see #Expectations(Integer, Object...)
     * @see <a href="http://jmockit.org/tutorial/Mocking.html#partial">Tutorial</a>
     */
    protected Expectations(Object... classesOrObjectsToBePartiallyMocked)
@@ -195,27 +192,22 @@ public abstract class Expectations extends Invocations
     * @param classesOrObjectsToBePartiallyMocked one or more classes or objects whose classes are to be partially mocked
     *
     * @see #Expectations()
+    * @deprecated Will be removed in a future release; existing tests should be simplified in order to not depend on
+    * iterated expectations, or eliminated altogether.
     */
+   @Deprecated
    protected Expectations(Integer numberOfIterations, Object... classesOrObjectsToBePartiallyMocked)
    {
       this(classesOrObjectsToBePartiallyMocked);
-      getCurrentPhase().setNumberOfIterations(numberOfIterations);
+      RecordPhase currentPhase = getCurrentPhase();
+
+      if (currentPhase != null) {
+         currentPhase.setNumberOfIterations(numberOfIterations);
+      }
    }
 
-   @Nonnull @Override
+   @Nullable @Override
    final RecordPhase getCurrentPhase() { return execution.getRecordPhase(); }
-
-   /**
-    * Specifies that the previously recorded method invocation will return a given value during replay.
-    *
-    * @param singleValue the value to be returned at replay time
-    * @deprecated Assign the value to the {@link #result} field instead.
-    */
-   @Deprecated
-   protected final void returns(Object singleValue)
-   {
-      getCurrentPhase().addSequenceOfReturnValues(singleValue, new Object[0]);
-   }
 
    /**
     * Specifies that the previously recorded method invocation will return a given sequence of values during replay.
@@ -244,18 +236,20 @@ public abstract class Expectations extends Invocations
     * @param secondValue the second value to be returned at replay time
     * @param remainingValues any remaining values to be returned, in the same order
     *
-    * @throws IllegalArgumentException if this method is used for a constructor or {@code void} method
-    *
     * @see <a href="http://jmockit.org/tutorial/Mocking.html#results">Tutorial</a>
     */
    protected final void returns(Object firstValue, Object secondValue, Object... remainingValues)
    {
-      int n = remainingValues.length;
-      Object[] values = new Object[2 + n];
-      values[0] = firstValue;
-      values[1] = secondValue;
-      System.arraycopy(remainingValues, 0, values, 2, n);
+      RecordPhase currentPhase = getCurrentPhase();
 
-      getCurrentPhase().addSequenceOfReturnValues(values);
+      if (currentPhase != null) {
+         int n = remainingValues.length;
+         Object[] values = new Object[2 + n];
+         values[0] = firstValue;
+         values[1] = secondValue;
+         System.arraycopy(remainingValues, 0, values, 2, n);
+
+         currentPhase.addSequenceOfReturnValues(values);
+      }
    }
 }

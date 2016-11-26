@@ -66,60 +66,6 @@ public final class ExpectedInvocation
       return UNDEFINED_DEFAULT_RETURN;
    }
 
-   @Nonnull
-   public String getCallerClassName()
-   {
-      //noinspection ConstantConditions
-      StackTrace st = new StackTrace(invocationCause);
-
-      int steIndex = 3;
-      StackTraceElement ste = st.getElement(steIndex);
-
-      if (ste.getFileName() != null && ste.getLineNumber() == -1 && ste.getMethodName().charAt(0) != '<') {
-         StackTraceElement steNext = st.getElement(steIndex + 1);
-
-         if (steNext.getMethodName().equals(ste.getMethodName())) { // bridge method
-            ste = steNext;
-            steIndex++;
-         }
-      }
-
-      String firstCaller = ste.getClassName();
-
-      steIndex += "mockit.internal.expectations.mocking.MockedBridge".equals(firstCaller) ? 2 : 1;
-      String secondCaller = st.getElement(steIndex).getClassName();
-
-      if (secondCaller.contains(".reflect.")) { // called through Reflection
-         return getNextCallerAfterReflectionCalls(st, steIndex);
-      }
-
-      if (!secondCaller.equals(firstCaller)) {
-         return secondCaller;
-      }
-
-      String thirdCaller = st.getElement(steIndex + 1).getClassName();
-      return thirdCaller;
-   }
-
-   @Nonnull
-   private static String getNextCallerAfterReflectionCalls(@Nonnull StackTrace st, int steIndex)
-   {
-      steIndex += 3;
-
-      while (true) {
-         String nextCaller = st.getElement(steIndex).getClassName();
-         steIndex++;
-
-         if ("mockit.Deencapsulation".equals(nextCaller)) {
-            continue;
-         }
-
-         if (!nextCaller.contains(".reflect.") && !nextCaller.startsWith("mockit.internal.")) {
-            return nextCaller;
-         }
-      }
-   }
-
    // Simple getters //////////////////////////////////////////////////////////////////////////////////////////////////
 
    @Nonnull public String getClassDesc() { return arguments.classDesc; }
@@ -430,14 +376,6 @@ public final class ExpectedInvocation
       return newUnexpectedInvocationWithCause("Unexpected invocation" + this, "Unexpected invocation after" + another);
    }
 
-   public IllegalStateException exceptionForRedundantExpectation()
-   {
-      IllegalStateException exception = new IllegalStateException(
-         "Identical expectation already recorded; please remove this verification or adjust the recording");
-      setErrorAsInvocationCause("Redundant expectation", exception);
-      return exception;
-   }
-
    @Nonnull @Override
    public String toString() { return toString((Object) null); }
 
@@ -541,40 +479,5 @@ public final class ExpectedInvocation
    public void copyDefaultReturnValue(@Nonnull ExpectedInvocation other)
    {
       defaultReturnValue = other.defaultReturnValue;
-   }
-
-   public boolean isRedundant(@Nonnull ExpectedInvocation other)
-   {
-      if (matchInstance != other.matchInstance) {
-         return false;
-      }
-
-      List<ArgumentMatcher<?>> thisMatchers = arguments.getMatchers();
-      List<ArgumentMatcher<?>> otherMatchers = other.arguments.getMatchers();
-
-      if (thisMatchers == otherMatchers) {
-         return true;
-      }
-
-      if (thisMatchers == null || otherMatchers == null) {
-         return false;
-      }
-
-      int n = thisMatchers.size();
-
-      if (otherMatchers.size() != n) {
-         return false;
-      }
-
-      for (int i = 0; i < n; i++) {
-         ArgumentMatcher<?> thisMatcher = thisMatchers.get(i);
-         ArgumentMatcher<?> otherMatcher = otherMatchers.get(i);
-
-         if (thisMatcher != otherMatcher && !thisMatcher.equals(otherMatcher)) {
-            return false;
-         }
-      }
-
-      return true;
    }
 }

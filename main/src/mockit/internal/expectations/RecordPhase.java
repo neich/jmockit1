@@ -6,12 +6,9 @@ package mockit.internal.expectations;
 
 import javax.annotation.*;
 
-import mockit.*;
 import mockit.internal.expectations.invocation.*;
 import mockit.internal.state.*;
-import mockit.internal.util.*;
 import static mockit.internal.state.ExecutingTest.*;
-import static mockit.internal.util.ClassLoad.*;
 
 public final class RecordPhase extends TestOnlyPhase
 {
@@ -25,17 +22,16 @@ public final class RecordPhase extends TestOnlyPhase
 
    public void addResult(@Nullable Object result)
    {
-      getCurrentExpectation().addResult(result);
+      if (currentExpectation != null) {
+         currentExpectation.addResult(result);
+      }
    }
 
    public void addSequenceOfReturnValues(@Nonnull Object[] values)
    {
-      getCurrentExpectation().addSequenceOfReturnValues(values);
-   }
-
-   public void addSequenceOfReturnValues(@Nullable Object firstValue, @Nullable Object[] remainingValues)
-   {
-      getCurrentExpectation().addSequenceOfReturnValues(firstValue, remainingValues);
+      if (currentExpectation != null) {
+         currentExpectation.addSequenceOfReturnValues(values);
+      }
    }
 
    @Nullable @Override
@@ -49,31 +45,28 @@ public final class RecordPhase extends TestOnlyPhase
 
       ExpectedInvocation invocation = new ExpectedInvocation(
          mock, mockAccess, mockClassDesc, mockNameAndDesc, matchInstance, genericSignature, args);
-      Class<?> callerClass = loadClass(invocation.getCallerClassName());
 
-      if (Expectations.class.isAssignableFrom(callerClass)) {
-         boolean nonStrictInvocation = false;
+      boolean nonStrictInvocation = false;
 
-         if (strict) {
-            TestRun.getExecutingTest().addStrictMock(mock, matchInstance ? null : mockClassDesc);
-         }
-         else if (!matchInstance && invocation.isConstructor()) {
-            invocation.replacementInstance = mock;
-            getReplacementMap().put(mock, mock);
-         }
-         else {
-            nonStrictInvocation = isInstanceMethodWithStandardBehavior(mock, mockNameAndDesc);
-         }
-
-         currentExpectation = new Expectation(this, invocation, strict, nonStrictInvocation);
-
-         if (argMatchers != null) {
-            invocation.arguments.setMatchers(argMatchers);
-            argMatchers = null;
-         }
-
-         recordAndReplay.executionState.addExpectation(currentExpectation, strict);
+      if (strict) {
+         TestRun.getExecutingTest().addStrictMock(mock, matchInstance ? null : mockClassDesc);
       }
+      else if (!matchInstance && invocation.isConstructor()) {
+         invocation.replacementInstance = mock;
+         getReplacementMap().put(mock, mock);
+      }
+      else {
+         nonStrictInvocation = isInstanceMethodWithStandardBehavior(mock, mockNameAndDesc);
+      }
+
+      currentExpectation = new Expectation(this, invocation, strict, nonStrictInvocation);
+
+      if (argMatchers != null) {
+         invocation.arguments.setMatchers(argMatchers);
+         argMatchers = null;
+      }
+
+      recordAndReplay.executionState.addExpectation(currentExpectation, strict);
 
       return invocation.getDefaultValueForReturnType();
    }
@@ -87,38 +80,24 @@ public final class RecordPhase extends TestOnlyPhase
          return null;
       }
 
-      if (nextInstanceToMatch == null) {
-         Object replacementInstance = getReplacementMap().get(mock);
-         matchInstance = mock == replacementInstance || isEnumElement(mock);
-         return mock;
-      }
-
-      Object specified = nextInstanceToMatch;
-
-      if (mock != specified) {
-         Class<?> mockedClass = GeneratedClasses.getMockedClass(mock);
-
-         if (!mockedClass.isInstance(specified)) {
-            return mock;
-         }
-      }
-
-      nextInstanceToMatch = null;
-      matchInstance = true;
-      return specified;
+      Object replacementInstance = getReplacementMap().get(mock);
+      matchInstance = mock == replacementInstance || isEnumElement(mock);
+      return mock;
    }
 
    @Override
    public void handleInvocationCountConstraint(int minInvocations, int maxInvocations)
    {
-      int lowerLimit = minInvocations;
-      int upperLimit = maxInvocations;
+      if (currentExpectation != null) {
+         int lowerLimit = minInvocations;
+         int upperLimit = maxInvocations;
 
-      if (numberOfIterations > 1 && !strict) {
-         lowerLimit *= numberOfIterations;
-         upperLimit *= numberOfIterations;
+         if (numberOfIterations > 1 && !strict) {
+            lowerLimit *= numberOfIterations;
+            upperLimit *= numberOfIterations;
+         }
+
+         currentExpectation.constraints.setLimits(lowerLimit, upperLimit);
       }
-
-      getCurrentExpectation().constraints.setLimits(lowerLimit, upperLimit);
    }
 }

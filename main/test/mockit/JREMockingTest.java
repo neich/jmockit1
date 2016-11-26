@@ -196,20 +196,6 @@ public final class JREMockingTest
       assertTrue(t.terminatedCleanly);
    }
 
-   // When a native instance method is called on a regular instance, there is no way to execute its real
-   // implementation; therefore, dynamic mocking of native methods is not supported.
-   @Test
-   public void dynamicMockingOfNativeMethod(@Injectable final Thread t)
-   {
-      thrown.expect(IllegalStateException.class);
-      thrown.expectMessage("Missing invocation to mocked type");
-
-      new Expectations() {{
-         t.isAlive();
-         result = true;
-      }};
-   }
-
    @Test
    public void fullMockingOfThread(@Mocked Thread t)
    {
@@ -292,7 +278,7 @@ public final class JREMockingTest
    // Mocking of IO classes ///////////////////////////////////////////////////////////////////////////////////////////
 
    // These would interfere with the test runner if regular mocking was applied.
-/*
+
    @Injectable FileOutputStream stream;
    @Injectable Writer writer;
    @Injectable FileWriter fw;
@@ -320,7 +306,6 @@ public final class JREMockingTest
 
       new Verifications() {{ writer.append('x'); }};
    }
-*/
 
    @Test @Ignore("Find a way to avoid NPE from superclass constructor")
    public void mockConstructorsInFileWriterClass() throws Exception
@@ -452,57 +437,6 @@ public final class JREMockingTest
       thrown.expectMessage("java.lang.StrictMath is not mockable");
 
       new Expectations(StrictMath.class) {};
-   }
-
-   // Un-mockable JRE methods/constructors ////////////////////////////////////////////////////////////////////////////
-
-   @Test
-   public void attemptToRecordExpectationOnJREClassHavingAllMethodsExcludedFromMocking(@Mocked final ArrayList<?> list)
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("record");
-      thrown.expectMessage("unmockable method");
-
-      new Expectations() {{
-         list.get(anyInt);
-      }};
-   }
-
-   @Test
-   public void attemptToRecordExpectationOnJREMethodThatIsExcludedFromMocking(@Mocked System system)
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("record");
-      thrown.expectMessage("unmockable method");
-
-      new Expectations() {{
-         System.getProperties();
-      }};
-   }
-
-   @Test
-   public void attemptToRecordExpectationOnJREMethodExcludedFromMockingWhenUsingArgumentMatcher(
-      @SuppressWarnings("UseOfObsoleteCollectionType") @Mocked final Hashtable<?, ?> map)
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("record");
-      thrown.expectMessage("unmockable method");
-
-      new Expectations() {{
-         map.containsKey(any);
-      }};
-   }
-
-   @Test
-   public void attemptToVerifyExpectationOnJREConstructorThatIsExcludedFromMocking(@Mocked Properties properties)
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("verify");
-      thrown.expectMessage("unmockable constructor");
-
-      new Verifications() {{
-         new Properties();
-      }};
    }
 
    // Mocking java.util.logging ///////////////////////////////////////////////////////////////////////////////////////

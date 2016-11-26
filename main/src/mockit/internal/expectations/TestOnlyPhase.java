@@ -13,7 +13,6 @@ import static mockit.internal.util.Utilities.*;
 public abstract class TestOnlyPhase extends Phase
 {
    protected int numberOfIterations;
-   @Nullable protected Object nextInstanceToMatch;
    protected boolean matchInstance;
    @Nullable protected List<ArgumentMatcher<?>> argMatchers;
    @Nullable Expectation currentExpectation;
@@ -22,15 +21,7 @@ public abstract class TestOnlyPhase extends Phase
 
    public final void setNumberOfIterations(int numberOfIterations) { this.numberOfIterations = numberOfIterations; }
 
-   public final void setNextInstanceToMatch(@Nullable Object nextInstanceToMatch)
-   {
-      this.nextInstanceToMatch = nextInstanceToMatch;
-   }
-
-   public final void addArgMatcher(@Nonnull ArgumentMatcher<?> matcher)
-   {
-      getArgumentMatchers().add(matcher);
-   }
+   public final void addArgMatcher(@Nonnull ArgumentMatcher<?> matcher) { getArgumentMatchers().add(matcher); }
 
    @Nonnull
    private List<ArgumentMatcher<?>> getArgumentMatchers()
@@ -42,9 +33,20 @@ public abstract class TestOnlyPhase extends Phase
       return argMatchers;
    }
 
-   public final void moveArgMatcher(int originalMatcherIndex, int toIndex)
+   public final void moveArgMatcher(@Nonnegative int originalMatcherIndex, @Nonnegative int toIndex)
    {
       List<ArgumentMatcher<?>> matchers = getArgumentMatchers();
+      int i = getMatcherPositionIgnoringNulls(originalMatcherIndex, matchers);
+
+      for (i--; i < toIndex; i++) {
+         matchers.add(i, null);
+      }
+   }
+
+   @Nonnegative
+   private static int getMatcherPositionIgnoringNulls(
+      @Nonnegative int originalMatcherIndex, @Nonnull List<ArgumentMatcher<?>> matchers)
+   {
       int i = 0;
 
       for (int matchersFound = 0; matchersFound <= originalMatcherIndex; i++) {
@@ -53,46 +55,34 @@ public abstract class TestOnlyPhase extends Phase
          }
       }
 
-      for (i--; i < toIndex; i++) {
-         matchers.add(i, null);
-      }
+      return i;
    }
 
-   public final void setExpectedSingleArgumentType(int parameterIndex, @Nonnull Class<?> argumentType)
+   public final void setExpectedSingleArgumentType(@Nonnegative int parameterIndex, @Nonnull Class<?> argumentType)
    {
       ArgumentMatcher<?> newMatcher = ClassMatcher.create(argumentType);
       getArgumentMatchers().set(parameterIndex, newMatcher);
    }
 
-   public final void setExpectedMultiArgumentType(int parameterIndex, @Nonnull Class<?> argumentType)
+   public final void setExpectedMultiArgumentType(@Nonnegative int parameterIndex, @Nonnull Class<?> argumentType)
    {
       CaptureMatcher<?> matcher = (CaptureMatcher<?>) getArgumentMatchers().get(parameterIndex);
       matcher.setExpectedType(argumentType);
    }
 
-   @Nonnull
-   final Expectation getCurrentExpectation()
-   {
-      if (currentExpectation == null) {
-         throw new IllegalStateException(
-            "Missing invocation to mocked type at this point; please make sure such invocations appear only after " +
-            "the declaration of a suitable mock field or parameter");
-      }
-
-      return currentExpectation;
-   }
-
    public void setMaxInvocationCount(int maxInvocations)
    {
-      int currentMinimum = getCurrentExpectation().constraints.minInvocations;
+      if (currentExpectation != null) {
+         int currentMinimum = currentExpectation.constraints.minInvocations;
 
-      if (numberOfIterations > 0) {
-         currentMinimum /= numberOfIterations;
+         if (numberOfIterations > 0) {
+            currentMinimum /= numberOfIterations;
+         }
+
+         int minInvocations = maxInvocations < 0 ? currentMinimum : Math.min(currentMinimum, maxInvocations);
+
+         handleInvocationCountConstraint(minInvocations, maxInvocations);
       }
-
-      int minInvocations = maxInvocations < 0 ? currentMinimum : Math.min(currentMinimum, maxInvocations);
-
-      handleInvocationCountConstraint(minInvocations, maxInvocations);
    }
 
    public abstract void handleInvocationCountConstraint(int minInvocations, int maxInvocations);
