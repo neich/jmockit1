@@ -68,20 +68,27 @@ public final class MethodCoverageData implements Serializable
       Node node = nodes.get(nodeIndex);
       List<Node> testPathNodes = testPath.get();
 
-      if (node instanceof Node.Entry || node.getIncomingNodes().size() > 0) {
+      if (node.isEntry() || node.getIncomingNodes().size() > 0) {
          Node n = node.isSimplified() ? node.subsumedBy : node;
          n.setReached(Boolean.TRUE);
          if (testPathNodes.size() == 0 || testPathNodes.get(testPathNodes.size()-1) != n)
             testPathNodes.add(n);
+         if (!(node instanceof Node.Fork)) {
+            Node next = node.getNextConsecutiveNode();
+            if (next != null) {
+               next.setReached(Boolean.TRUE);
+               if (testPathNodes.size() == 0 || testPathNodes.get(testPathNodes.size()-1) != next)
+                  testPathNodes.add(next);
+            }
+         }
       }
 
       int previousExecutionCount = -1;
-      if (node instanceof Node.Exit) {
+      if (node.isExit()) {
          Node start = testPathNodes.get(0);
-         if (start instanceof Node.Entry) {
-            Node.Entry startNode = (Node.Entry) start;
+         if (start.isEntry() && start.getPrimePaths() != null) {
 
-            for (Path path : startNode.primePaths) {
+            for (Path path : start.getPrimePaths()) {
                int previousExecutionCountPath = path.countExecutionIfAllNodesWereReached(testPathNodes);
 
                if (previousExecutionCountPath == 0) {

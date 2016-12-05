@@ -772,7 +772,7 @@ final class CoverageModifier extends ClassVisitor
                   cparams.add(pclazz);
                }
             }
-            Method[] ms = clazz.getMethods();
+            Method[] ms = clazz.getDeclaredMethods();
             for (Method m : ms) {
                if (!m.getName().equals(name)) continue;
                Class<?>[] mParams = m.getParameterTypes();
@@ -786,10 +786,8 @@ final class CoverageModifier extends ClassVisitor
                }
                if (sameParams) {
                   Class<?>[] exceptions = m.getExceptionTypes();
-                  if (exceptions.length > 0)
-                     handleMethodCall(opcode, exceptions);
-                  else
-                     handleRegularInstruction(opcode);
+                  handleMethodCall(opcode, exceptions);
+                  break;
                }
             }
          } catch (Exception e) {

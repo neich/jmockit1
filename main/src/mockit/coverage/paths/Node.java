@@ -14,6 +14,44 @@ import java.util.List;
 public class Node implements Serializable
 {
 
+   private boolean subsumable = false;
+
+   public void setSubsumable(boolean subsumable) {
+      this.subsumable = subsumable;
+   }
+
+   public boolean isSubsumable() {
+      return subsumable;
+   }
+
+   @Nullable
+   public List<Path> getPrimePaths() {
+      return primePaths;
+   }
+
+   public void setPrimePaths(@Nullable List<Path> primePaths) {
+      this.primePaths = primePaths;
+   }
+
+
+   public boolean isDummy() {
+      return incomingNodes.size() == 0 && nextConsecutiveNode == null;
+   }
+
+   public boolean hasMultipleEntries() {
+      return incomingNodes.size() > 1;
+   }
+
+   public boolean isEntry() {
+      return false;
+   }
+
+   public boolean isExit() { return false; }
+
+   public boolean isGoto() { return false; }
+
+   public boolean isRegular() { return false; }
+
    public static class LineSegment {
       public int line;
       public int segment;
@@ -32,10 +70,14 @@ public class Node implements Serializable
    protected List<LineSegment> extraLineSegments = new ArrayList<>();
    protected List<Node> incomingNodes = new ArrayList<Node>();
    protected Node subsumedBy = null;
+   private boolean isGoto = false;
 
    @Nullable protected Node nextConsecutiveNode;
+   @Nullable protected List<Node> jumpNodes;
 
-   private Node(int line) {
+   @Nullable private List<Path> primePaths;
+
+   public Node(int line) {
       this.line = line;
    }
 
@@ -47,10 +89,16 @@ public class Node implements Serializable
 
    public Node getSubsumedBy() { return subsumedBy; }
 
+   public boolean isFork() { return jumpNodes != null; }
+
    @Nullable
    public Node getNextConsecutiveNode() {
       return nextConsecutiveNode;
    }
+
+   public void addSuccessor(Node n) {}
+
+   public List<Node> getJumpNodes() { return jumpNodes; }
 
    public void swapIncomingNode(Node oldNode, Node newNode) {
       incomingNodes.set(incomingNodes.indexOf(oldNode), newNode);
@@ -75,30 +123,37 @@ public class Node implements Serializable
       nextConsecutiveNode = newNode;
    }
 
-   public boolean fuse(Node n) {
-      if (n instanceof Fork || (n instanceof Exit && !(this instanceof Entry))) {
-         n.moveIncomingNodes(this);
-         n.extraLineSegments.addAll(this.getExtraLineSegments());
-         return false;
-      } else {
-         this.extraLineSegments.addAll(n.getExtraLineSegments());
-         this.swapNextConsecutiveNode(n.getNextConsecutiveNode());
-         return true;
+   public void subsumeNext(Node next) {
+      this.extraLineSegments.addAll(next.getExtraLineSegments());
+      next.removeIncomingNode(this);
+      this.extraLineSegments.add(new LineSegment(nextConsecutiveNode.line, nextConsecutiveNode.segment));
+      nextConsecutiveNode = next.getNextConsecutiveNode();
+      nextConsecutiveNode.removeIncomingNode(next);
+      nextConsecutiveNode.addIncomingNode(this);
+      next.setSubsumedBy(this);
+   }
+
+   public void subsumePrev(Node prev) {
+      for (Node n : prev.getIncomingNodes()) {
+         if (n.getNextConsecutiveNode() == prev) n.setNextConsecutiveNode(this);
+         else if (n.isFork() && n.getJumpNodes().contains(prev)) {
+            n.getJumpNodes().remove(prev);
+            n.getJumpNodes().add(this);
+         }
       }
+      this.removeIncomingNode(prev);
+      this.moveIncomingNodes(prev);
+      this.extraLineSegments.addAll(prev.getExtraLineSegments());
+      prev.setSubsumedBy(this);
    }
 
    private void moveIncomingNodes(Node node) {
       this.incomingNodes.clear();
       for (Node n: node.getIncomingNodes()) {
          this.addIncomingNode(n);
-         n.replaceNextNode(node, this);
+         n.replaceJumpNode(node, this);
       }
    }
-
-   public void replaceNextNode(Node oldNode, Node newNode) {
-      if (nextConsecutiveNode == oldNode) nextConsecutiveNode = newNode;
-   }
-
 
    private void removeIncomingNode(Node node) {
       incomingNodes.remove(node);
@@ -107,7 +162,7 @@ public class Node implements Serializable
    void setSegmentAccordingToPrecedingNode(@Nonnull Node precedingNode)
    {
       int currentSegment = precedingNode.segment;
-      segment = precedingNode instanceof Fork ? currentSegment + 1 : currentSegment;
+      segment = currentSegment + 1; // precedingNode.isFork() ? currentSegment + 1 : currentSegment;
    }
 
    public final int getSegment() { return segment; }
@@ -118,7 +173,17 @@ public class Node implements Serializable
    final boolean wasReached() { return reached.get() != null; }
 
    @Override
-   public final String toString() { return getClass().getSimpleName() + ':' + line + '-' + segment; }
+   public final String toString() {
+      String baseName = getClass().getName();
+      baseName = baseName.substring(baseName.indexOf("$")+1, baseName.length());
+/*
+      if (isEntry()) baseName = "Entry";
+      else if (isExit()) baseName = "Exit";
+      else if (isFork()) baseName = "Fork";
+      else baseName = "Block";
+*/
+      return baseName + ':' + line + '-' + segment;
+   }
 
    public void addIncomingNode(Node node) {
       incomingNodes.add(node);
@@ -126,117 +191,98 @@ public class Node implements Serializable
 
    public List<Node> getIncomingNodes() { return this.incomingNodes; }
 
-   static final class Entry extends Node
-   {
-      private static final long serialVersionUID = -3065417917872259568L;
-      public List<Path> primePaths = new ArrayList<Path>();
-
-      Entry(int entryLine) { super(entryLine); }
+   void addNextNode(@Nonnull Node nextNode) {
+      if (jumpNodes == null) jumpNodes = new ArrayList<>();
+      jumpNodes.add(nextNode);
+      nextNode.addIncomingNode(this);
    }
 
-   interface GotoSuccessor extends Serializable
-   {
-      void setNextNodeAfterGoto(@Nonnull Join newJoin);
-   }
-
-   static final class Exit extends Node
-   {
-      private static final long serialVersionUID = -4801498566218642509L;
-      @Nonnull final List<Path> paths = new ArrayList<Path>(4);
-
-      Exit(int exitLine) { super(exitLine); }
-   }
-
-   static final class BasicBlock extends Node
-   {
-      private static final long serialVersionUID = 2637678937923952603L;
-
-      BasicBlock(int startingLine) { super(startingLine); }
-
-   }
-
-   public abstract static class Fork extends Node
-   {
-      private static final long serialVersionUID = -4995089238476806249L;
-
-      Fork(int line) { super(line); }
-
-      abstract void addNextNode(@Nonnull Node nextNode);
-   }
-
-   public static final class SimpleFork extends Fork
-   {
-      private static final long serialVersionUID = -521666665272332763L;
-      @Nullable private Node nextNodeAfterJump;
-      protected List<LineSegment> extraLineSegmentsForJump = new ArrayList<>();
-
-      SimpleFork(int line) { super(line); }
-
-      @Override
-      void addNextNode(@Nonnull Node nextNode) {
-         nextNodeAfterJump = nextNode;
-         nextNode.addIncomingNode(this);
+   public void replaceNextConsecutiveNode(Node oldNode, Node newNode) {
+      if (nextConsecutiveNode == oldNode) nextConsecutiveNode = newNode;
+      else if (jumpNodes.contains(oldNode)) {
+         jumpNodes.remove(oldNode);
+         jumpNodes.add(newNode);
       }
-
-      @Override
-      public void replaceNextNode(Node oldNode, Node newNode) {
-         if (nextConsecutiveNode == oldNode) nextConsecutiveNode = newNode;
-         else if (nextNodeAfterJump == oldNode) nextNodeAfterJump = newNode;
-      }
-
-      void swapNextNodeAfterJump(@Nonnull Node nextNode) {
-         if (nextNodeAfterJump != null) {
-            nextNodeAfterJump.removeIncomingNode(this);
-            nextNode.removeIncomingNode(nextNodeAfterJump);
-            nextNode.addIncomingNode(this);
-            this.extraLineSegmentsForJump.add(new LineSegment(nextNodeAfterJump.line, nextNodeAfterJump.segment));
-         }
-         nextNodeAfterJump = nextNode;
-      }
-
-      public Node getNextNodeAfterJump() { return this.nextNodeAfterJump; }
-
-      public List<LineSegment> getExtraLineSegmentsForJump() { return this.extraLineSegmentsForJump; }
    }
 
-   static final class MultiFork extends Fork
-   {
-      private static final long serialVersionUID = 1220318686622690670L;
-      @Nonnull private final List<Node> caseNodes = new ArrayList<Node>();
-
-      MultiFork(int line) { super(line); }
-
-      @Override
-      void addNextNode(@Nonnull Node nextNode) { caseNodes.add(nextNode); }
-
-   }
-
-   static final class Join extends Node
-   {
-      private static final long serialVersionUID = -1983522899831071765L;
-      transient boolean fromTrivialFork;
-
-      Join(int joiningLine) { super(joiningLine); }
-
+   void replaceJumpNode(@Nonnull Node oldNode, @Nonnull Node nextNode) {
 /*
-      @Override
-      void setSegmentAccordingToPrecedingNode(@Nonnull Node precedingNode)
-      {
-         segment = precedingNode.segment + 1;
+      if (jumpNodes != null) {
+         nextNodeAfterJump.removeIncomingNode(this);
+         nextNode.removeIncomingNode(nextNodeAfterJump);
+         nextNode.addIncomingNode(this);
+         this.extraLineSegmentsForJump.add(new LineSegment(nextNodeAfterJump.line, nextNodeAfterJump.segment));
+      } else {
+         jum
       }
+      nextNodeAfterJump = nextNode;
 */
    }
 
-   static final class Goto extends Node
-   {
-      private static final long serialVersionUID = -4715451134432419220L;
-
-      Goto(int line) { super(line); }
-
-      public void setNextNodeAfterGoto(@Nonnull Join newJoin) {
-         setNextConsecutiveNode(newJoin);
+   public static class Entry extends Node {
+      public Entry(int line) {
+         super(line);
+         setSubsumable(false);
       }
 
-      public Node getNextNodeAfterGoto() { return getNextConsecutiveNode(); }
+      public boolean isEntry() {  return true; }
+      public boolean isRegular() {  return true; }
    }
+
+   public static class Exit extends Node {
+      public Exit(int line) {
+         super(line);
+         setSubsumable(false);
+      }
+
+      public boolean isExit() {  return true; }
+      public boolean isRegular() {  return true; }
+   }
+
+   public static class Fork extends Node {
+      public Fork(int line) {
+         super(line);
+         setSubsumable(false);
+         jumpNodes = new ArrayList<>();
+      }
+
+      public void addSuccessor(Node n) {
+         jumpNodes.add(n);
+         n.addIncomingNode(this);
+      }
+   }
+
+   public static class Join extends Node {
+      public Join(int line) {
+         super(line);
+         setSubsumable(true);
+      }
+
+      public boolean isRegular() {  return true; }
+   }
+
+   public static class BasicBlock extends Node {
+      public BasicBlock(int line) {
+         super(line);
+         setSubsumable(true);
+      }
+
+      public boolean isRegular() {  return true; }
+   }
+
+   public static class Goto extends Node {
+      public Goto(int line) {
+         super(line);
+         setSubsumable(true);
+      }
+
+      public boolean isGoto() {  return true; }
+      public void addSuccessor(Node n) {
+         setNextConsecutiveNode(n);
+         n.addIncomingNode(this);
+      }
+
+   }
+
 }
+

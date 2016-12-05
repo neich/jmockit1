@@ -4,8 +4,6 @@
  */
 package mockit.coverage.paths;
 
-import mockit.coverage.paths.Node.Exit;
-
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -20,8 +18,6 @@ final class PathBuilder
    static List<Path> buildPaths(@Nonnull List<Node> origNodes)
    {
       if (origNodes.size() <= 1) return Collections.emptyList();
-
-      if (!(origNodes.get(0) instanceof Node.Entry)) return Collections.emptyList();
 
       if (origNodes.get(0).line == origNodes.get(origNodes.size()-1).line) return Collections.emptyList();
 
@@ -38,8 +34,8 @@ final class PathBuilder
 
       if (paths.size() == 1) return new ArrayList<Path>();
 
-      Node.Entry entry = (Node.Entry)nodes.get(0);
-      entry.primePaths = paths;
+      Node entry = nodes.get(0);
+      entry.setPrimePaths(paths);
 
       return paths;
       // return getAllPathsFromExitNodes(nodes);
@@ -49,28 +45,41 @@ final class PathBuilder
       Stack<Node> nodes = new Stack<>();
 
       for (Node n : origNodes) {
-         if (n instanceof Node.Entry) {
+         if (n.getSubsumedBy() != null) continue;
+
+         if (n.isDummy()) continue;
+
+         if (n.isEntry()) {
             nodes.add(n);
             continue;
          }
-         if (n.getIncomingNodes().size() == 0) continue;
+
+         if (n.getIncomingNodes().size() == 0) {
+            n.getNextConsecutiveNode().getIncomingNodes().remove(n);
+            if (n.isFork())
+               for (Node child : n.getJumpNodes()) {
+                  child.getIncomingNodes().remove(n);
+               }
+            continue;
+         }
 
          Node prev = n.getIncomingNodes().get(0);
 
-         if (prev instanceof Node.Fork || n.getIncomingNodes().size() > 1) {
+         if (!prev.isFork() && !n.hasMultipleEntries()) {
+            if (n.isSubsumable()) {
+               prev.subsumeNext(n);
+               continue;
+            } else if (prev.isSubsumable()){
+               n.subsumePrev(prev);
+               nodes.remove(prev);
+               nodes.add(n);
+            } else {
+               nodes.add(n);
+            }
+         } else {
             nodes.add(n);
-            continue;
          }
 
-         if (!(prev instanceof Node.Entry)) {
-            if (!prev.fuse(n)) {
-               nodes.remove(prev);
-               prev.setSubsumedBy(n);
-               nodes.push(n);
-            } else {
-               n.setSubsumedBy(prev);
-            }
-         } else nodes.push(n);
       }
 
       return nodes;
@@ -90,7 +99,7 @@ final class PathBuilder
 
       Node lastNode = path.nodes.lastElement();
 
-      if (lastNode instanceof Exit) {
+      if (lastNode.isExit()) {
          if (path.isPrime()) {
             paths.add(path);
             return paths;
@@ -107,42 +116,25 @@ final class PathBuilder
             paths.add(path);
             return paths;
          }
-         else if (path.nodes.firstElement() instanceof Node.Entry) {
+         else if (path.nodes.firstElement().isEntry()) {
             path.nodes.pop();
             paths.add(path);
             return paths;
          }
          else
             return new ArrayList<>();
-      } else if (lastNode instanceof Node.SimpleFork) {
-         Node.SimpleFork lastSimpleFork = (Node.SimpleFork) lastNode;
-         Path path1 = new Path(path, false);
-         path1.addNode(lastSimpleFork.getNextConsecutiveNode());
-         Path path2 = new Path(path, false);
-         path2.addNode(lastSimpleFork.getNextNodeAfterJump());
-         List<Path> pathsTotal = getAllPrimePathsFromPath(path1);
-         pathsTotal.addAll(getAllPrimePathsFromPath(path2));
-         return pathsTotal;
-      } else if (lastNode instanceof Node.Goto) {
-         path.addNode(((Node.Goto) lastNode).getNextNodeAfterGoto());
-         return getAllPrimePathsFromPath(path);
       } else {
-         path.addNode(lastNode.getNextConsecutiveNode());
-         return getAllPrimePathsFromPath(path);
-      }
-   }
-
-   @Nonnull
-   private static List<Path> getAllPathsFromExitNodes(@Nonnull List<Node> nodes)
-   {
-      List<Path> paths = new ArrayList<Path>();
-
-      for (Node node : nodes) {
-         if (node instanceof Exit) {
-            paths.addAll(((Exit) node).paths);
+         Path pcons = new Path(path, false);
+         pcons.addNode(lastNode.getNextConsecutiveNode());
+         paths.addAll(getAllPrimePathsFromPath(pcons));
+         if (lastNode.isFork()) {
+            for (Node n : lastNode.getJumpNodes()) {
+               Path p = new Path(path, false);
+               p.addNode(n);
+               paths.addAll(getAllPrimePathsFromPath(p));
+            }
          }
+         return paths;
       }
-
-      return paths;
    }
 }
