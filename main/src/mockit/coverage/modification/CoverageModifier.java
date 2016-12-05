@@ -74,6 +74,8 @@ final class CoverageModifier extends ClassVisitor
    @Nullable private String kindOfTopLevelType;
    private int currentLine;
 
+   private static CClassLoader cClassLoader = new CClassLoader(CoverageModifier.class.getClassLoader());;
+
    CoverageModifier(@Nonnull ClassReader cr, boolean forReloadedClass)
    {
       this(cr, false, forReloadedClass ? new BitSet(65536) : null);
@@ -764,11 +766,11 @@ final class CoverageModifier extends ClassVisitor
             if (group != null) parameters.add(group);
          }
          try {
-            Class<?> clazz = Class.forName(owner.replace('/', '.'), false, ClassLoader.getSystemClassLoader());
+            Class<?> clazz = Class.forName(owner.replace('/', '.'), false, cClassLoader);
             List<Class<?>> cparams = new ArrayList<>();
             for (String p : parameters) {
                if (p.charAt(0) == 'L') {
-                  Class<?> pclazz = Class.forName(p.substring(1, p.length()-1).replace('/', '.'), false, ClassLoader.getSystemClassLoader());
+                  Class<?> pclazz = Class.forName(p.substring(1, p.length()-1).replace('/', '.'), false, cClassLoader);
                   cparams.add(pclazz);
                }
             }
