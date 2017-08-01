@@ -9,8 +9,8 @@ import mockit.coverage.data.FileCoverageData;
 import mockit.coverage.lines.BranchCoverageData;
 import mockit.coverage.lines.LineCoverageData;
 import mockit.coverage.lines.PerFileLineCoverage;
-import mockit.coverage.paths.MethodCoverageData;
-import mockit.coverage.paths.NodeBuilder;
+import mockit.coverage.primepaths.PPMethodCoverageData;
+import mockit.coverage.primepaths.PPNodeBuilder;
 import mockit.external.asm.*;
 
 import javax.annotation.Nonnull;
@@ -530,14 +530,14 @@ final class CoverageModifier extends ClassVisitor
 
    private class MethodOrConstructorModifier extends BaseMethodModifier
    {
-      @Nullable private NodeBuilder nodeBuilder;
+      @Nullable private PPNodeBuilder nodeBuilder;
       @Nullable private Label entryPoint;
       private int jumpCount;
 
       MethodOrConstructorModifier(@Nonnull MethodWriter mw)
       {
          super(mw);
-         nodeBuilder = new NodeBuilder();
+         nodeBuilder = new PPNodeBuilder();
       }
 
       @Override
@@ -852,7 +852,7 @@ final class CoverageModifier extends ClassVisitor
       public final void visitEnd()
       {
          if (currentLine > 0 && nodeBuilder != null && nodeBuilder.hasNodes() && fileData != null) {
-            MethodCoverageData methodData = new MethodCoverageData();
+            PPMethodCoverageData methodData = new PPMethodCoverageData();
             methodData.buildPaths(currentLine, nodeBuilder);
             fileData.addMethod(methodData);
          }

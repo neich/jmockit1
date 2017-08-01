@@ -11,12 +11,12 @@ import javax.annotation.*;
 import mockit.coverage.*;
 import mockit.coverage.data.*;
 import mockit.coverage.dataItems.*;
-import mockit.coverage.paths.*;
+import mockit.coverage.primepaths.*;
 import mockit.coverage.reporting.*;
 import mockit.coverage.reporting.dataCoverage.*;
 import mockit.coverage.reporting.lineCoverage.*;
 import mockit.coverage.reporting.parsing.*;
-import mockit.coverage.reporting.pathCoverage.*;
+import mockit.coverage.reporting.ppathCoverage.*;
 
 /**
  * Generates an HTML page containing line-by-line coverage information for a single source file.
@@ -28,7 +28,7 @@ public final class FileCoverageReport
    @Nonnull private final FileParser fileParser;
    @Nonnull private final NeutralOutput neutralOutput;
    @Nonnull private final LineCoverageOutput lineCoverage;
-   @Nullable private final PathCoverageOutput pathCoverage;
+   @Nullable private final PPathCoverageOutput pathCoverage;
    @Nullable private final DataCoverageOutput dataCoverage;
 
    public FileCoverageReport(
@@ -46,11 +46,11 @@ public final class FileCoverageReport
    }
 
    @Nullable
-   private PathCoverageOutput createPathCoverageOutput(@Nonnull FileCoverageData fileData)
+   private PPathCoverageOutput createPathCoverageOutput(@Nonnull FileCoverageData fileData)
    {
       if (Metrics.PathCoverage.active) {
-         Collection<MethodCoverageData> methods = fileData.getMethods();
-         return methods.isEmpty() ? null : new PathCoverageOutput(output, methods);
+         Collection<PPMethodCoverageData> methods = fileData.getMethods();
+         return methods.isEmpty() ? null : new PPathCoverageOutput(output, methods);
       }
 
       return null;

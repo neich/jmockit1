@@ -2,11 +2,11 @@
  * Copyright (c) 2006 Rogério Liesenfeld
  * This file is subject to the terms of the MIT license (see LICENSE.txt).
  */
-package mockit.coverage.reporting.pathCoverage;
+package mockit.coverage.reporting.ppathCoverage;
 
 import mockit.coverage.CoveragePercentage;
-import mockit.coverage.paths.MethodCoverageData;
-import mockit.coverage.paths.Path;
+import mockit.coverage.primepaths.PPMethodCoverageData;
+import mockit.coverage.primepaths.PPath;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -15,19 +15,19 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
-public final class PathCoverageOutput
+public final class PPathCoverageOutput
 {
    @Nonnull private final PrintWriter output;
-   @Nonnull private final PathCoverageFormatter pathFormatter;
-   @Nonnull private final Iterator<MethodCoverageData> nextMethod;
+   @Nonnull private final PPathCoverageFormatter pathFormatter;
+   @Nonnull private final Iterator<PPMethodCoverageData> nextMethod;
 
    // Helper fields:
-   @Nullable private MethodCoverageData currentMethod;
+   @Nullable private PPMethodCoverageData currentMethod;
 
-   public PathCoverageOutput(@Nonnull PrintWriter output, @Nonnull Collection<MethodCoverageData> methods)
+   public PPathCoverageOutput(@Nonnull PrintWriter output, @Nonnull Collection<PPMethodCoverageData> methods)
    {
       this.output = output;
-      pathFormatter = new PathCoverageFormatter(output);
+      pathFormatter = new PPathCoverageFormatter(output);
       nextMethod = methods.iterator();
       moveToNextMethod();
    }
@@ -45,9 +45,9 @@ public final class PathCoverageOutput
       }
    }
 
-   private void writePathCoverageInformationForMethod(@Nonnull MethodCoverageData methodData)
+   private void writePathCoverageInformationForMethod(@Nonnull PPMethodCoverageData methodData)
    {
-      List<Path> paths = methodData.getPaths();
+      List<PPath> paths = methodData.getPaths();
 
       if (paths.size() > 1) {
          writeHeaderForAllPaths(methodData);
@@ -57,7 +57,7 @@ public final class PathCoverageOutput
       }
    }
 
-   private void writeHeaderForAllPaths(@Nonnull MethodCoverageData methodData)
+   private void writeHeaderForAllPaths(@Nonnull PPMethodCoverageData methodData)
    {
       int coveredPaths = methodData.getCoveredPaths();
       int totalPaths = methodData.getTotalPaths();

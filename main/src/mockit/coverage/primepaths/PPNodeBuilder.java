@@ -2,7 +2,7 @@
  * Copyright (c) 2006 Rogério Liesenfeld
  * This file is subject to the terms of the MIT license (see LICENSE.txt).
  */
-package mockit.coverage.paths;
+package mockit.coverage.primepaths;
 
 import mockit.external.asm.Label;
 
@@ -10,33 +10,33 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.*;
 
-public final class NodeBuilder
+public final class PPNodeBuilder
 {
    public int firstLine;
-   @Nonnull final List<Node> nodes = new ArrayList<>();
+   @Nonnull final List<PPNode> nodes = new ArrayList<>();
 
-   @Nullable private Node entryNode;
+   @Nullable private PPNode entryNode;
    @Nullable private Map<Class<?>, Label> catch2label = new HashMap<>();
    @Nullable private Map<Label, Class<?>> label2catch = new HashMap<>();
-   @Nonnull private final Map<Label, List<Node>> jumpTargetToNodes = new LinkedHashMap<Label, List<Node>>();
-   @Nonnull private final Map<Label, List<Node>> gotoTargetToSuccessors = new LinkedHashMap<Label, List<Node>>();
-   @Nonnull private final Map<Label, Node> labelToNode = new LinkedHashMap<Label, Node>();
+   @Nonnull private final Map<Label, List<PPNode>> jumpTargetToNodes = new LinkedHashMap<Label, List<PPNode>>();
+   @Nonnull private final Map<Label, List<PPNode>> gotoTargetToSuccessors = new LinkedHashMap<Label, List<PPNode>>();
+   @Nonnull private final Map<Label, PPNode> labelToNode = new LinkedHashMap<Label, PPNode>();
    private boolean insideTryCatch = false;
 
    private int potentiallyTrivialJump;
-   @Nullable private Node nodeExitException;
-   @Nullable private Node currentNode;
+   @Nullable private PPNode nodeExitException;
+   @Nullable private PPNode currentNode;
    @Nullable private Label finallyClause;
    private boolean insideCatchOrFinally;
 
-   private int addNewNode(@Nonnull Node newNode)
+   private int addNewNode(@Nonnull PPNode newNode)
    {
       int newNodeIndex = nodes.size();
 
       nodes.add(newNode);
 
       if (newNodeIndex > 0) {
-         Node precedingNode = nodes.get(newNodeIndex - 1);
+         PPNode precedingNode = nodes.get(newNodeIndex - 1);
 
          if (precedingNode.line == newNode.line) {
             newNode.setSegmentAccordingToPrecedingNode(precedingNode);
@@ -51,7 +51,7 @@ public final class NodeBuilder
    public void handleEntry(int line)
    {
       firstLine = line;
-      entryNode = new Node.Entry(line);
+      entryNode = new PPNode.Entry(line);
 
       currentNode = entryNode;
       addNewNode(entryNode);
@@ -59,7 +59,7 @@ public final class NodeBuilder
 
    public int handleExit(int exitLine)
    {
-      Node newNode = new Node.Exit(exitLine);
+      PPNode newNode = new PPNode.Exit(exitLine);
       connectNode(newNode);
 
       currentNode = newNode;
@@ -71,7 +71,7 @@ public final class NodeBuilder
    {
       if (currentNode.isRegular()) return -1;
 
-      Node newNode = new Node.BasicBlock(line);
+      PPNode newNode = new PPNode.BasicBlock(line);
       newNode.setSubsumable(true);
       connectNode(newNode);
 
@@ -83,7 +83,7 @@ public final class NodeBuilder
 
       if (exceptions.length == 0 && finallyClause == null) return handleRegularInstruction(line, -1);
 
-      Node newFork = new Node.Fork(line);
+      PPNode newFork = new PPNode.Fork(line);
       connectNode(newFork);
       int nodeIndex = addNewNode(newFork);
 
@@ -99,7 +99,7 @@ public final class NodeBuilder
                   connectNodeToLabel(finallyClause, newFork);
                   linkedToFinally = true;
                } else {
-                  Node exitException = new Node.Exit(line);
+                  PPNode exitException = new PPNode.Exit(line);
                   connectNodeToNode(newFork, exitException);
                   addNewNode(exitException);
                }
@@ -114,7 +114,7 @@ public final class NodeBuilder
 
    public int handleJump(@Nonnull Label targetBlock, int line, boolean conditional)
    {
-      Node n = conditional ? new Node.Fork(line) : new Node.Goto(line);
+      PPNode n = conditional ? new PPNode.Fork(line) : new PPNode.Goto(line);
 
       connectNodeToLabel(targetBlock, n);
       connectNode(n);
@@ -125,7 +125,7 @@ public final class NodeBuilder
 
    public int handleMultipleJump(@Nonnull Label[] targets, int line)
    {
-      Node newFork = new Node.Fork(line);
+      PPNode newFork = new PPNode.Fork(line);
       connectNode(newFork);
          // assert currentSimpleFork == null;
       for (Label l : targets)
@@ -154,7 +154,7 @@ public final class NodeBuilder
       else
          insideCatchOrFinally = false;
 
-      Node newNode = new Node.Join(line);
+      PPNode newNode = new PPNode.Join(line);
       if (!insideTryCatch)
          newNode.setSubsumable(true);
       labelToNode.put(jumpTarget, newNode);
@@ -186,16 +186,16 @@ public final class NodeBuilder
       return !jumpTargetToNodes.containsKey(basicBlock) && !gotoTargetToSuccessors.containsKey(basicBlock);
    }
 
-   private void connectNode(@Nonnull Node node)
+   private void connectNode(@Nonnull PPNode node)
    {
-      if (!currentNode.isGoto() && !(currentNode instanceof Node.Exit)) {
+      if (!currentNode.isGoto() && !(currentNode instanceof PPNode.Exit)) {
          currentNode.setNextConsecutiveNode(node);
       }
    }
 
-   private void connectNodeToLabel(@Nonnull Label targetBlock, @Nonnull Node node)
+   private void connectNodeToLabel(@Nonnull Label targetBlock, @Nonnull PPNode node)
    {
-      Node targetNode = labelToNode.get(targetBlock);
+      PPNode targetNode = labelToNode.get(targetBlock);
 
        if (targetNode != null) {
             node.addSuccessor(targetNode);
@@ -204,31 +204,31 @@ public final class NodeBuilder
           setUpMappingFromConditionalTargetToNode(targetBlock, node);
    }
 
-   private void connectNodeToNode(@Nonnull Node fromNode, @Nonnull Node toNode)
+   private void connectNodeToNode(@Nonnull PPNode fromNode, @Nonnull PPNode toNode)
    {
       fromNode.setNextConsecutiveNode(toNode);
    }
 
-   private void setUpMappingFromConditionalTargetToNode(@Nonnull Label targetBlock, @Nonnull Node node)
+   private void setUpMappingFromConditionalTargetToNode(@Nonnull Label targetBlock, @Nonnull PPNode node)
    {
       if (labelToNode.containsKey(targetBlock)) return;
 
-      List<Node> nodesWithSameTarget = jumpTargetToNodes.get(targetBlock);
+      List<PPNode> nodesWithSameTarget = jumpTargetToNodes.get(targetBlock);
 
       if (nodesWithSameTarget == null) {
-         nodesWithSameTarget = new LinkedList<Node>();
+         nodesWithSameTarget = new LinkedList<PPNode>();
          jumpTargetToNodes.put(targetBlock, nodesWithSameTarget);
       }
 
       nodesWithSameTarget.add(node);
    }
 
-   private void connectNodesToTargetedJoin(@Nonnull Label target, @Nonnull Node newJoin)
+   private void connectNodesToTargetedJoin(@Nonnull Label target, @Nonnull PPNode newJoin)
    {
-      List<Node> nodes = jumpTargetToNodes.get(target);
+      List<PPNode> nodes = jumpTargetToNodes.get(target);
 
       if (nodes != null) {
-         for (Node n : nodes) {
+         for (PPNode n : nodes) {
             n.addSuccessor(newJoin);
          }
 
@@ -238,7 +238,7 @@ public final class NodeBuilder
 
    public int handleForwardJumpsToNewTargets(@Nonnull Label defaultBlock, @Nonnull Label[] caseBlocks, int line)
    {
-      Node newJoin = new Node.Join(line);
+      PPNode newJoin = new PPNode.Join(line);
 
       for (Label targetBlock : caseBlocks) {
          if (targetBlock != defaultBlock) {

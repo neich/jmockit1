@@ -2,10 +2,10 @@
  * Copyright (c) 2006 Rogério Liesenfeld
  * This file is subject to the terms of the MIT license (see LICENSE.txt).
  */
-package mockit.coverage.reporting.pathCoverage;
+package mockit.coverage.reporting.ppathCoverage;
 
-import mockit.coverage.paths.Node;
-import mockit.coverage.paths.Path;
+import mockit.coverage.primepaths.PPNode;
+import mockit.coverage.primepaths.PPath;
 
 import javax.annotation.Nonnull;
 import java.io.PrintWriter;
@@ -13,25 +13,25 @@ import java.text.MessageFormat;
 import java.util.Iterator;
 import java.util.List;
 
-final class PathCoverageFormatter
+final class PPathCoverageFormatter
 {
    @Nonnull private final PrintWriter output;
    @Nonnull private final StringBuilder lineSegmentIds;
    private char pathId1;
    private char pathId2;
 
-   PathCoverageFormatter(@Nonnull PrintWriter output)
+   PPathCoverageFormatter(@Nonnull PrintWriter output)
    {
       this.output = output;
       lineSegmentIds = new StringBuilder(100);
    }
 
-   void writeInformationForEachPath(@Nonnull List<Path> paths)
+   void writeInformationForEachPath(@Nonnull List<PPath> paths)
    {
       pathId1 = 'A';
       pathId2 = '\0';
 
-      for (Path path : paths) {
+      for (PPath path : paths) {
          writeCoverageInfoForIndividualPath(path);
 
          if (pathId2 == '\0' && pathId1 < 'Z') {
@@ -51,7 +51,7 @@ final class PathCoverageFormatter
       }
    }
 
-   private void writeCoverageInfoForIndividualPath(@Nonnull Path path)
+   private void writeCoverageInfoForIndividualPath(@Nonnull PPath path)
    {
       int executionCount = path.getExecutionCount();
       String lineSegmentIdsForPath = getIdsForLineSegmentsBelongingToThePath(path);
@@ -68,7 +68,7 @@ final class PathCoverageFormatter
    }
 
    @Nonnull
-   private String getIdsForLineSegmentsBelongingToThePath(@Nonnull Path path)
+   private String getIdsForLineSegmentsBelongingToThePath(@Nonnull PPath path)
    {
       lineSegmentIds.setLength(0);
       lineSegmentIds.append('[');
@@ -76,9 +76,9 @@ final class PathCoverageFormatter
       int previousLine = 0;
       int previousSegment = 0;
 
-      Iterator<Node> it = path.getNodes().iterator();
+      Iterator<PPNode> it = path.getNodes().iterator();
       while (it.hasNext()) {
-         Node node = it.next();
+         PPNode node = it.next();
          lineSegmentIds.append(MessageFormat.format("[''{0}'', ", node.toString()));
          lineSegmentIds.append('\'');
 
@@ -87,7 +87,7 @@ final class PathCoverageFormatter
 
          appendSegmentId(line, segment, false);
 
-         for (Node.LineSegment ls: node.getExtraLineSegments()) appendSegmentId(ls.line, ls.segment, true);
+         for (PPNode.LineSegment ls: node.getExtraLineSegments()) appendSegmentId(ls.line, ls.segment, true);
          lineSegmentIds.append("\']");
          if (it.hasNext()) lineSegmentIds.append(',');
       }

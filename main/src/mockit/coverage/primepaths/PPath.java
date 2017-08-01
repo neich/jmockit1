@@ -2,7 +2,7 @@
  * Copyright (c) 2006 Rogério Liesenfeld
  * This file is subject to the terms of the MIT license (see LICENSE.txt).
  */
-package mockit.coverage.paths;
+package mockit.coverage.primepaths;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -11,33 +11,33 @@ import java.util.List;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public final class Path implements Serializable
+public final class PPath implements Serializable
 {
    private static final long serialVersionUID = 8895491272907955543L;
 
-   @Nonnull final Stack<Node> nodes = new Stack<>();
+   @Nonnull final Stack<PPNode> nodes = new Stack<>();
    @Nonnull private final AtomicInteger executionCount = new AtomicInteger();
    private final boolean shadowed;
-   @Nullable private Path shadowPath;
+   @Nullable private PPath shadowPath;
 
-   Path(@Nonnull Node node)
+   PPath(@Nonnull PPNode node)
    {
       shadowed = false;
       addNode(node);
    }
 
-   Path(@Nonnull Path sharedSubPath, boolean shadowed)
+   PPath(@Nonnull PPath sharedSubPath, boolean shadowed)
    {
       this.shadowed = shadowed;
       sharedSubPath.shadowPath = shadowed ? this : null;
       nodes.addAll(sharedSubPath.nodes);
    }
 
-   void addNode(@Nonnull Node node) { nodes.add(node); }
+   void addNode(@Nonnull PPNode node) { nodes.add(node); }
 
-   int countExecutionIfAllNodesWereReached(@Nonnull List<Node> nodesReached)
+   int countExecutionIfAllNodesWereReached(@Nonnull List<PPNode> nodesReached)
    {
-      Node startPath = this.nodes.get(0);
+      PPNode startPath = this.nodes.get(0);
       int posReached = nodesReached.indexOf(startPath);
       if (posReached < 0) return -1;
 
@@ -77,7 +77,7 @@ public final class Path implements Serializable
    }
 
    public boolean isShadowed() { return shadowed; }
-   @Nonnull public List<Node> getNodes() { return nodes; }
+   @Nonnull public List<PPNode> getNodes() { return nodes; }
 
    public int getExecutionCount()
    {
@@ -90,7 +90,7 @@ public final class Path implements Serializable
       return count;
    }
 
-   void addCountFromPreviousTestRun(@Nonnull Path previousPath)
+   void addCountFromPreviousTestRun(@Nonnull PPath previousPath)
    {
       int currentExecutionCount = executionCount.get();
       int previousExecutionCount = previousPath.executionCount.get();
@@ -103,8 +103,8 @@ public final class Path implements Serializable
    }
 
    public boolean isPrime() {
-      Node node = this.nodes.get(0);
-      for (Node n: node.getIncomingNodes())
+      PPNode node = this.nodes.get(0);
+      for (PPNode n: node.getIncomingNodes())
          if (!this.nodes.contains(n)) return false;
       return true;
    }

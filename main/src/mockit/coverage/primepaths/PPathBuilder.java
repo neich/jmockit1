@@ -2,7 +2,7 @@
  * Copyright (c) 2006 Rogério Liesenfeld
  * This file is subject to the terms of the MIT license (see LICENSE.txt).
  */
-package mockit.coverage.paths;
+package mockit.coverage.primepaths;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -10,41 +10,41 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Stack;
 
-final class PathBuilder
+final class PPathBuilder
 {
-   private PathBuilder() {}
+   private PPathBuilder() {}
 
    @Nonnull
-   static List<Path> buildPaths(@Nonnull List<Node> origNodes)
+   static List<PPath> buildPaths(@Nonnull List<PPNode> origNodes)
    {
       if (origNodes.size() <= 1) return Collections.emptyList();
 
       if (origNodes.get(0).line == origNodes.get(origNodes.size()-1).line) return Collections.emptyList();
 
-      final List<Node> nodes = simplifyGraph(origNodes);
+      final List<PPNode> nodes = simplifyGraph(origNodes);
 
       if (nodes.size() == 1) {
          return Collections.emptyList();
       }
 
-      List<Path> paths = new ArrayList<Path>();
-      for (Node node: nodes) {
+      List<PPath> paths = new ArrayList<PPath>();
+      for (PPNode node: nodes) {
          paths.addAll(getAllPrimePathsFromNode(node));
       }
 
-      if (paths.size() == 1) return new ArrayList<Path>();
+      if (paths.size() == 1) return new ArrayList<PPath>();
 
-      Node entry = nodes.get(0);
+      PPNode entry = nodes.get(0);
       entry.setPrimePaths(paths);
 
       return paths;
       // return getAllPathsFromExitNodes(nodes);
    }
 
-   private static Stack<Node> simplifyGraph(List<Node> origNodes) {
-      Stack<Node> nodes = new Stack<>();
+   private static Stack<PPNode> simplifyGraph(List<PPNode> origNodes) {
+      Stack<PPNode> nodes = new Stack<>();
 
-      for (Node n : origNodes) {
+      for (PPNode n : origNodes) {
          if (n.getSubsumedBy() != null) continue;
 
          if (n.isDummy()) continue;
@@ -57,13 +57,13 @@ final class PathBuilder
          if (n.getIncomingNodes().size() == 0) {
             n.getNextConsecutiveNode().getIncomingNodes().remove(n);
             if (n.isFork())
-               for (Node child : n.getJumpNodes()) {
+               for (PPNode child : n.getJumpNodes()) {
                   child.getIncomingNodes().remove(n);
                }
             continue;
          }
 
-         Node prev = n.getIncomingNodes().get(0);
+         PPNode prev = n.getIncomingNodes().get(0);
 
          if (!prev.isFork() && !n.hasMultipleEntries()) {
             if (n.isSubsumable()) {
@@ -85,19 +85,19 @@ final class PathBuilder
       return nodes;
    }
 
-   private static List<Path> getAllPrimePathsFromNode(Node node) {
+   private static List<PPath> getAllPrimePathsFromNode(PPNode node) {
       // if (node instanceof Exit) return new ArrayList<Path>();
-      if (node.getNextConsecutiveNode() == null) return new ArrayList<Path>();
+      if (node.getNextConsecutiveNode() == null) return new ArrayList<PPath>();
 
-      Path path = new Path(node);
+      PPath path = new PPath(node);
 
       return getAllPrimePathsFromPath(path);
    }
 
-   private static List<Path> getAllPrimePathsFromPath(Path path) {
-      ArrayList<Path> paths = new ArrayList<Path>();
+   private static List<PPath> getAllPrimePathsFromPath(PPath path) {
+      ArrayList<PPath> paths = new ArrayList<PPath>();
 
-      Node lastNode = path.nodes.lastElement();
+      PPNode lastNode = path.nodes.lastElement();
 
       if (lastNode.isExit()) {
          if (path.isPrime()) {
@@ -108,7 +108,7 @@ final class PathBuilder
       }
 
       // This should never happen ...
-      if (lastNode.getNextConsecutiveNode() == null) return new ArrayList<Path>();
+      if (lastNode.getNextConsecutiveNode() == null) return new ArrayList<PPath>();
 
       int pos = path.nodes.indexOf(lastNode);
       if (path.nodes.size() > 1 && pos < path.nodes.size()-1) {
@@ -124,12 +124,12 @@ final class PathBuilder
          else
             return new ArrayList<>();
       } else {
-         Path pcons = new Path(path, false);
+         PPath pcons = new PPath(path, false);
          pcons.addNode(lastNode.getNextConsecutiveNode());
          paths.addAll(getAllPrimePathsFromPath(pcons));
          if (lastNode.isFork()) {
-            for (Node n : lastNode.getJumpNodes()) {
-               Path p = new Path(path, false);
+            for (PPNode n : lastNode.getJumpNodes()) {
+               PPath p = new PPath(path, false);
                p.addNode(n);
                paths.addAll(getAllPrimePathsFromPath(p));
             }

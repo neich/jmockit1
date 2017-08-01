@@ -2,7 +2,7 @@
  * Copyright (c) 2006 Rogério Liesenfeld
  * This file is subject to the terms of the MIT license (see LICENSE.txt).
  */
-package mockit.coverage.paths;
+package mockit.coverage.primepaths;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @SuppressWarnings("ClassReferencesSubclass")
-public class Node implements Serializable
+public class PPNode implements Serializable
 {
 
    private boolean subsumable = false;
@@ -25,11 +25,11 @@ public class Node implements Serializable
    }
 
    @Nullable
-   public List<Path> getPrimePaths() {
+   public List<PPath> getPrimePaths() {
       return primePaths;
    }
 
-   public void setPrimePaths(@Nullable List<Path> primePaths) {
+   public void setPrimePaths(@Nullable List<PPath> primePaths) {
       this.primePaths = primePaths;
    }
 
@@ -68,16 +68,16 @@ public class Node implements Serializable
    public final int line;
    protected int segment;
    protected List<LineSegment> extraLineSegments = new ArrayList<>();
-   protected List<Node> incomingNodes = new ArrayList<Node>();
-   protected Node subsumedBy = null;
+   protected List<PPNode> incomingNodes = new ArrayList<PPNode>();
+   protected PPNode subsumedBy = null;
    private boolean isGoto = false;
 
-   @Nullable protected Node nextConsecutiveNode;
-   @Nullable protected List<Node> jumpNodes;
+   @Nullable protected PPNode nextConsecutiveNode;
+   @Nullable protected List<PPNode> jumpNodes;
 
-   @Nullable private List<Path> primePaths;
+   @Nullable private List<PPath> primePaths;
 
-   public Node(int line) {
+   public PPNode(int line) {
       this.line = line;
    }
 
@@ -85,31 +85,31 @@ public class Node implements Serializable
       return subsumedBy != null;
    }
 
-   public void setSubsumedBy(Node n) { this.subsumedBy = n; }
+   public void setSubsumedBy(PPNode n) { this.subsumedBy = n; }
 
-   public Node getSubsumedBy() { return subsumedBy; }
+   public PPNode getSubsumedBy() { return subsumedBy; }
 
    public boolean isFork() { return jumpNodes != null; }
 
    @Nullable
-   public Node getNextConsecutiveNode() {
+   public PPNode getNextConsecutiveNode() {
       return nextConsecutiveNode;
    }
 
-   public void addSuccessor(Node n) {}
+   public void addSuccessor(PPNode n) {}
 
-   public List<Node> getJumpNodes() { return jumpNodes; }
+   public List<PPNode> getJumpNodes() { return jumpNodes; }
 
-   public void swapIncomingNode(Node oldNode, Node newNode) {
+   public void swapIncomingNode(PPNode oldNode, PPNode newNode) {
       incomingNodes.set(incomingNodes.indexOf(oldNode), newNode);
    }
 
-   public void setNextConsecutiveNode(@Nullable Node nextConsecutiveNode) {
+   public void setNextConsecutiveNode(@Nullable PPNode nextConsecutiveNode) {
       this.nextConsecutiveNode = nextConsecutiveNode;
       nextConsecutiveNode.addIncomingNode(this);
    }
 
-   public void swapNextConsecutiveNode(Node newNode) {
+   public void swapNextConsecutiveNode(PPNode newNode) {
 
       if (nextConsecutiveNode != null) {
          nextConsecutiveNode.removeIncomingNode(this);
@@ -123,7 +123,7 @@ public class Node implements Serializable
       nextConsecutiveNode = newNode;
    }
 
-   public void subsumeNext(Node next) {
+   public void subsumeNext(PPNode next) {
       this.extraLineSegments.addAll(next.getExtraLineSegments());
       next.removeIncomingNode(this);
       this.extraLineSegments.add(new LineSegment(nextConsecutiveNode.line, nextConsecutiveNode.segment));
@@ -133,8 +133,8 @@ public class Node implements Serializable
       next.setSubsumedBy(this);
    }
 
-   public void subsumePrev(Node prev) {
-      for (Node n : prev.getIncomingNodes()) {
+   public void subsumePrev(PPNode prev) {
+      for (PPNode n : prev.getIncomingNodes()) {
          if (n.getNextConsecutiveNode() == prev) n.setNextConsecutiveNode(this);
          else if (n.isFork() && n.getJumpNodes().contains(prev)) {
             n.getJumpNodes().remove(prev);
@@ -147,19 +147,19 @@ public class Node implements Serializable
       prev.setSubsumedBy(this);
    }
 
-   private void moveIncomingNodes(Node node) {
+   private void moveIncomingNodes(PPNode node) {
       this.incomingNodes.clear();
-      for (Node n: node.getIncomingNodes()) {
+      for (PPNode n: node.getIncomingNodes()) {
          this.addIncomingNode(n);
          n.replaceJumpNode(node, this);
       }
    }
 
-   private void removeIncomingNode(Node node) {
+   private void removeIncomingNode(PPNode node) {
       incomingNodes.remove(node);
    }
 
-   void setSegmentAccordingToPrecedingNode(@Nonnull Node precedingNode)
+   void setSegmentAccordingToPrecedingNode(@Nonnull PPNode precedingNode)
    {
       int currentSegment = precedingNode.segment;
       segment = currentSegment + 1; // precedingNode.isFork() ? currentSegment + 1 : currentSegment;
@@ -185,19 +185,19 @@ public class Node implements Serializable
       return baseName + ':' + line + '-' + segment;
    }
 
-   public void addIncomingNode(Node node) {
+   public void addIncomingNode(PPNode node) {
       incomingNodes.add(node);
    }
 
-   public List<Node> getIncomingNodes() { return this.incomingNodes; }
+   public List<PPNode> getIncomingNodes() { return this.incomingNodes; }
 
-   void addNextNode(@Nonnull Node nextNode) {
+   void addNextNode(@Nonnull PPNode nextNode) {
       if (jumpNodes == null) jumpNodes = new ArrayList<>();
       jumpNodes.add(nextNode);
       nextNode.addIncomingNode(this);
    }
 
-   public void replaceNextConsecutiveNode(Node oldNode, Node newNode) {
+   public void replaceNextConsecutiveNode(PPNode oldNode, PPNode newNode) {
       if (nextConsecutiveNode == oldNode) nextConsecutiveNode = newNode;
       else if (jumpNodes.contains(oldNode)) {
          jumpNodes.remove(oldNode);
@@ -205,7 +205,7 @@ public class Node implements Serializable
       }
    }
 
-   void replaceJumpNode(@Nonnull Node oldNode, @Nonnull Node nextNode) {
+   void replaceJumpNode(@Nonnull PPNode oldNode, @Nonnull PPNode nextNode) {
 /*
       if (jumpNodes != null) {
          nextNodeAfterJump.removeIncomingNode(this);
@@ -219,7 +219,7 @@ public class Node implements Serializable
 */
    }
 
-   public static class Entry extends Node {
+   public static class Entry extends PPNode {
       public Entry(int line) {
          super(line);
          setSubsumable(false);
@@ -229,7 +229,7 @@ public class Node implements Serializable
       public boolean isRegular() {  return true; }
    }
 
-   public static class Exit extends Node {
+   public static class Exit extends PPNode {
       public Exit(int line) {
          super(line);
          setSubsumable(false);
@@ -239,20 +239,20 @@ public class Node implements Serializable
       public boolean isRegular() {  return true; }
    }
 
-   public static class Fork extends Node {
+   public static class Fork extends PPNode {
       public Fork(int line) {
          super(line);
          setSubsumable(false);
          jumpNodes = new ArrayList<>();
       }
 
-      public void addSuccessor(Node n) {
+      public void addSuccessor(PPNode n) {
          jumpNodes.add(n);
          n.addIncomingNode(this);
       }
    }
 
-   public static class Join extends Node {
+   public static class Join extends PPNode {
       public Join(int line) {
          super(line);
          setSubsumable(true);
@@ -261,7 +261,7 @@ public class Node implements Serializable
       public boolean isRegular() {  return true; }
    }
 
-   public static class BasicBlock extends Node {
+   public static class BasicBlock extends PPNode {
       public BasicBlock(int line) {
          super(line);
          setSubsumable(true);
@@ -270,14 +270,14 @@ public class Node implements Serializable
       public boolean isRegular() {  return true; }
    }
 
-   public static class Goto extends Node {
+   public static class Goto extends PPNode {
       public Goto(int line) {
          super(line);
          setSubsumable(true);
       }
 
       public boolean isGoto() {  return true; }
-      public void addSuccessor(Node n) {
+      public void addSuccessor(PPNode n) {
          setNextConsecutiveNode(n);
          n.addIncomingNode(this);
       }
