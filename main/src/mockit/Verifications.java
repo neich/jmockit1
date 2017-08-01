@@ -46,7 +46,7 @@ import mockit.internal.state.*;
  * @see #Verifications()
  * @see #withCapture()
  * @see Expectations
- * @see <a href="http://jmockit.org/tutorial/Mocking.html#verification">Tutorial</a>
+ * @see <a href="http://jmockit.org/tutorial/Mocking.html#verification" target="tutorial">Tutorial</a>
  */
 public abstract class Verifications extends Invocations
 {
@@ -57,31 +57,6 @@ public abstract class Verifications extends Invocations
     * Such verifications are meant to be executed <em>after</em> the call to code under test has been made.
     */
    protected Verifications() { this(false); }
-
-   /**
-    * Same as {@link #Verifications()}, but considering that such invocations occurred in a given number of iterations.
-    * <p/>
-    * The effect of specifying a (positive) number of iterations is equivalent to setting to that number the lower and
-    * upper invocation count limits for each expectation verified.
-    * If, however, the lower/upper limit is explicitly specified for an expectation, the given number of iterations
-    * becomes a multiplier.
-    * When not specified, at least one matching invocation will be required to have occurred; therefore, specifying
-    * <em>1 (one)</em> iteration is different from not specifying the number of iterations at all.
-    *
-    * @param numberOfIterations the positive number of iterations for the whole set of verified expectations
-    *
-    * @see #times
-    * @see #minTimes
-    * @see #maxTimes
-    * @deprecated Will be removed in a future release; existing tests should be simplified in order to not depend on
-    * iterated expectations, or eliminated altogether.
-    */
-   @Deprecated
-   protected Verifications(int numberOfIterations)
-   {
-      this(false);
-      verificationPhase.setNumberOfIterations(numberOfIterations);
-   }
 
    Verifications(boolean inOrder)
    {
@@ -125,7 +100,7 @@ public abstract class Verifications extends Invocations
     *
     * @see #withCapture(List)
     * @see #withCapture(Object)
-    * @see <a href="http://jmockit.org/tutorial/Mocking.html#withCapture">Tutorial</a>
+    * @see <a href="http://jmockit.org/tutorial/Mocking.html#withCapture" target="tutorial">Tutorial</a>
     */
    protected final <T> T withCapture()
    {
@@ -161,7 +136,7 @@ public abstract class Verifications extends Invocations
     *
     * @see #withCapture()
     * @see #withCapture(List)
-    * @see <a href="http://jmockit.org/tutorial/Mocking.html#withCapture">Tutorial</a>
+    * @see <a href="http://jmockit.org/tutorial/Mocking.html#withCapture" target="tutorial">Tutorial</a>
     */
    protected final <T> List<T> withCapture(@SuppressWarnings("unused") T constructorVerification)
    {

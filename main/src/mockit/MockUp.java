@@ -11,10 +11,10 @@ import static java.lang.reflect.Modifier.*;
 
 import mockit.internal.classGeneration.*;
 import mockit.internal.mockups.*;
+import mockit.internal.reflection.*;
 import mockit.internal.startup.*;
 import mockit.internal.state.MockClasses.*;
 import mockit.internal.state.*;
-import mockit.internal.util.*;
 import static mockit.internal.util.GeneratedClasses.*;
 
 /**
@@ -85,7 +85,7 @@ import static mockit.internal.util.GeneratedClasses.*;
  * @see #getMockInstance()
  * @see #onTearDown()
  * @see #targetType
- * @see <a href="http://jmockit.org/tutorial/Faking.html#setUp">Tutorial</a>
+ * @see <a href="http://jmockit.org/tutorial/Faking.html#setUp" target="tutorial">Tutorial</a>
  */
 public abstract class MockUp<T>
 {
@@ -293,7 +293,7 @@ public abstract class MockUp<T>
     * <p/>
     * In any case, for a given mock-up instance this method will always return the same mock instance.
     *
-    * @see <a href="http://jmockit.org/tutorial/Faking.html#interfaces">Tutorial</a>
+    * @see <a href="http://jmockit.org/tutorial/Faking.html#interfaces" target="tutorial">Tutorial</a>
     */
    public final T getMockInstance()
    {
@@ -320,7 +320,7 @@ public abstract class MockUp<T>
       String mockedClassName = mockedClass.getName();
 
       if (isGeneratedImplementationClass(mockedClassName)) {
-         return newInstance(mockedClass);
+         return ConstructorReflection.newInstanceUsingPublicDefaultConstructor(mockedClass);
       }
 
       if (Proxy.isProxyClass(mockedClass)) {

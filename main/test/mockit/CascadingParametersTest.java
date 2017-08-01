@@ -648,4 +648,37 @@ public final class CascadingParametersTest
       assertNotNull(compilation);
       assertNull(compilation.getName());
    }
+
+   public interface AnInterface { NonPublicTestedClass getPackagePrivateClass(); }
+
+   @Test
+   public void cascadeFromMethodInPublicInterfaceReturningPackagePrivateType(@Mocked AnInterface mock)
+   {
+      NonPublicTestedClass ret = mock.getPackagePrivateClass();
+
+      assertNull(ret);
+   }
+
+   public static final class CustomException extends Throwable  {}
+   static class AClass { CustomException getException() { return new CustomException(); } }
+
+   @Test
+   public void cascadeFromMethodReturningAThrowableSubclass(@Mocked AClass mock)
+   {
+      CustomException t = mock.getException();
+
+      assertNull(t);
+   }
+
+   static class First { <T extends Second> T getSecond(@SuppressWarnings("unused") Class<T> aClass) { return null; } }
+   static class Second { Runnable getSomething() { return null; }}
+
+   @Test
+   public void cascadeFromMethodReturningTypeProvidedByClassParameterThenFromCascadedInstance(@Mocked First first)
+   {
+      Second second = first.getSecond(Second.class);
+      Runnable runnable = second.getSomething();
+
+      assertNotNull(runnable);
+   }
 }

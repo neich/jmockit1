@@ -4,13 +4,17 @@
  */
 package mockit.internal.util;
 
+import java.io.*;
 import java.lang.reflect.*;
 import java.math.*;
+import java.net.*;
+import java.security.*;
 import java.util.*;
 import java.util.concurrent.atomic.*;
 import javax.annotation.*;
 
-import mockit.internal.state.*;
+import static java.lang.reflect.Modifier.isPublic;
+
 import static mockit.internal.util.AutoBoxing.*;
 
 /**
@@ -42,24 +46,6 @@ public final class Utilities
       }
    }
 
-   public static void ensureThatClassIsInitialized(@Nonnull Class<?> aClass)
-   {
-      ExecutingTest executingTest = TestRun.getExecutingTest();
-      boolean previousFlag = executingTest.setShouldIgnoreMockingCallbacks(true);
-
-      try {
-         Class.forName(aClass.getName(), true, aClass.getClassLoader());
-      }
-      catch (ClassNotFoundException ignore) {}
-      catch (LinkageError e) {
-         StackTrace.filterStackTrace(e);
-         e.printStackTrace();
-      }
-      finally {
-         executingTest.setShouldIgnoreMockingCallbacks(previousFlag);
-      }
-   }
-
    @Nonnull
    public static Class<?> getClassType(@Nonnull Type declaredType)
    {
@@ -74,6 +60,11 @@ public final class Utilities
 
          if (declaredType instanceof TypeVariable) {
             declaredType = ((TypeVariable<?>) declaredType).getBounds()[0];
+            continue;
+         }
+
+         if (declaredType instanceof WildcardType) {
+            declaredType = ((WildcardType) declaredType).getUpperBounds()[0];
             continue;
          }
 
@@ -181,8 +172,17 @@ public final class Utilities
    @Nonnull
    private static Object newWrapperInstance(@Nonnull Class<?> wrapperClass, @Nonnull String value)
    {
-      Class<?>[] constructorParameters = {String.class};
-      return ConstructorReflection.newInstance(wrapperClass, constructorParameters, value.trim());
+      for (Constructor<?> constructor : wrapperClass.getDeclaredConstructors()) {
+         if (isPublic(constructor.getModifiers())) {
+            Class<?>[] parameterTypes = constructor.getParameterTypes();
+
+            if (parameterTypes.length == 1 && parameterTypes[0] == String.class) {
+               try { return constructor.newInstance(value.trim()); } catch (Exception ignore) {}
+            }
+         }
+      }
+
+      throw new RuntimeException("Unable to instantiate " + wrapperClass + " with value \"" + value + "\"");
    }
 
    public static boolean calledFromSpecialThread()
@@ -191,5 +191,20 @@ public final class Utilities
       return
          "java.awt.EventDispatchThread".equals(currentThread.getClass().getName()) ||
          "system".equals(currentThread.getThreadGroup().getName());
+   }
+
+   @Nonnull
+   public static String getClassFileLocationPath(@Nonnull Class<?> aClass)
+   {
+      CodeSource codeSource = aClass.getProtectionDomain().getCodeSource();
+      return getClassFileLocationPath(codeSource);
+   }
+
+   @Nonnull
+   public static String getClassFileLocationPath(@Nonnull CodeSource codeSource)
+   {
+      String locationPath = codeSource.getLocation().getPath();
+      try { locationPath = URLDecoder.decode(locationPath, "UTF-8"); } catch (UnsupportedEncodingException ignore) {}
+      return locationPath;
    }
 }

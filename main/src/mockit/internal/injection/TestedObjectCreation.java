@@ -12,25 +12,25 @@ import static java.lang.reflect.Modifier.*;
 import mockit.external.asm.*;
 import mockit.internal.classGeneration.*;
 import mockit.internal.expectations.mocking.*;
+import mockit.internal.injection.constructor.*;
+import mockit.internal.injection.full.*;
 import mockit.internal.state.*;
 
-final class TestedObjectCreation
+public final class TestedObjectCreation
 {
    @Nonnull private final InjectionState injectionState;
    @Nullable private final FullInjection fullInjection;
-   @Nonnull private final Class<?> actualTestedClass;
    @Nonnull final TestedClass testedClass;
 
    TestedObjectCreation(
-      @Nonnull InjectionState injectionState, @Nullable FullInjection fullInjection, @Nonnull Field testedField)
+      @Nonnull InjectionState injectionState, @Nullable FullInjection fullInjection,
+      @Nonnull Type declaredType, @Nonnull Class<?> declaredClass)
    {
       this.injectionState = injectionState;
       this.fullInjection = fullInjection;
-      Class<?> declaredTestedClass = testedField.getType();
-      Type declaredType = testedField.getGenericType();
-      actualTestedClass = isAbstract(declaredTestedClass.getModifiers()) ?
-         generateSubclass(declaredType, declaredTestedClass) : declaredTestedClass;
-      testedClass = new TestedClass(declaredType, declaredTestedClass);
+      Class<?> actualTestedClass = isAbstract(declaredClass.getModifiers()) ?
+         generateSubclass(declaredType, declaredClass) : declaredClass;
+      testedClass = new TestedClass(declaredType, actualTestedClass);
    }
 
    @Nonnull
@@ -48,27 +48,25 @@ final class TestedObjectCreation
       return generatedSubclass;
    }
 
-   TestedObjectCreation(
+   public TestedObjectCreation(
       @Nonnull InjectionState injectionState, @Nullable FullInjection fullInjection,
       @Nonnull Class<?> implementationClass)
    {
       this.injectionState = injectionState;
       this.fullInjection = fullInjection;
-      actualTestedClass = implementationClass;
       testedClass = new TestedClass(implementationClass, implementationClass);
    }
 
    @Nonnull
-   Object create()
+   public Object create()
    {
-      ConstructorSearch constructorSearch =
-         new ConstructorSearch(injectionState, actualTestedClass, fullInjection != null);
+      ConstructorSearch constructorSearch = new ConstructorSearch(injectionState, testedClass, fullInjection != null);
       Constructor<?> constructor = constructorSearch.findConstructorToUse();
 
       if (constructor == null) {
          String description = constructorSearch.getDescription();
          throw new IllegalArgumentException(
-            "No constructor in tested class that can be satisfied by available injectables" + description);
+            "No constructor in tested class that can be satisfied by available tested/injectable values" + description);
       }
 
       ConstructorInjection constructorInjection =

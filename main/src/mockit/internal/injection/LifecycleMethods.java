@@ -4,18 +4,19 @@
  */
 package mockit.internal.injection;
 
+import java.lang.annotation.*;
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.Map.*;
 import javax.annotation.*;
 import javax.servlet.*;
 
+import mockit.internal.reflection.*;
 import mockit.internal.state.*;
-import mockit.internal.util.*;
 import static mockit.internal.injection.InjectionPoint.*;
 import static mockit.internal.util.Utilities.*;
 
-final class LifecycleMethods
+public final class LifecycleMethods
 {
    @Nonnull private final List<Class<?>> classesSearched;
    @Nonnull private final Map<Class<?>, Method> initializationMethods;
@@ -31,7 +32,7 @@ final class LifecycleMethods
       objectsWithTerminationMethodsToExecute = new IdentityHashMap<Class<?>, Object>();
    }
 
-   void findLifecycleMethods(@Nonnull Class<?> testedClass)
+   public void findLifecycleMethods(@Nonnull Class<?> testedClass)
    {
       if (testedClass.isInterface() || classesSearched.contains(testedClass)) {
          return;
@@ -59,7 +60,8 @@ final class LifecycleMethods
          if (method.isSynthetic()) {
             continue;
          }
-         else if (initializationMethod == null && isInitializationMethod(method, isServlet)) {
+
+         if (initializationMethod == null && isInitializationMethod(method, isServlet)) {
             initializationMethods.put(classWithLifecycleMethods, method);
             initializationMethod = method;
             methodsFoundInSameClass++;
@@ -78,7 +80,7 @@ final class LifecycleMethods
 
    private static boolean isInitializationMethod(@Nonnull Method method, boolean isServlet)
    {
-      if (method.isAnnotationPresent(PostConstruct.class)) {
+      if (hasLifecycleAnnotation(method, true)) {
          return true;
       }
 
@@ -90,14 +92,28 @@ final class LifecycleMethods
       return false;
    }
 
+   private static boolean hasLifecycleAnnotation(@Nonnull Method method, boolean postConstruct)
+   {
+      try {
+         Class<? extends Annotation> lifecycleAnnotation = postConstruct ? PostConstruct.class : PreDestroy.class;
+
+         if (method.isAnnotationPresent(lifecycleAnnotation)) {
+            return true;
+         }
+      }
+      catch (NoClassDefFoundError ignore) { /* can occur on JDK 9 */ }
+
+      return false;
+   }
+
    private static boolean isTerminationMethod(@Nonnull Method method, boolean isServlet)
    {
       return
-         method.isAnnotationPresent(PreDestroy.class) ||
+         hasLifecycleAnnotation(method, false) ||
          isServlet && "destroy".equals(method.getName()) && method.getParameterTypes().length == 0;
    }
 
-   void executeInitializationMethodsIfAny(@Nonnull Class<?> testedClass, @Nonnull Object testedObject)
+   public void executeInitializationMethodsIfAny(@Nonnull Class<?> testedClass, @Nonnull Object testedObject)
    {
       Class<?> superclass = testedClass.getSuperclass();
 

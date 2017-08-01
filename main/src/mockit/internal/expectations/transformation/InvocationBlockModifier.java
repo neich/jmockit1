@@ -10,28 +10,9 @@ import mockit.external.asm.*;
 import static mockit.external.asm.Opcodes.*;
 import static mockit.internal.util.TypeConversion.*;
 
-final class InvocationBlockModifier extends MethodVisitor
+public final class InvocationBlockModifier extends MethodVisitor
 {
-   private static final String CLASS_DESC = Type.getInternalName(ActiveInvocations.class);
-   private static final Type[] NO_PARAMETERS = new Type[0];
-   private static final String ANY_FIELDS =
-      "any anyString anyInt anyBoolean anyLong anyDouble anyFloat anyChar anyShort anyByte";
-   private static final String WITH_METHODS =
-      "withArgThat(Lorg/hamcrest/Matcher;)Ljava/lang/Object; " +
-      "with(Lmockit/Delegate;)Ljava/lang/Object; " +
-      "withAny(Ljava/lang/Object;)Ljava/lang/Object; " +
-      "withCapture()Ljava/lang/Object; withCapture(Ljava/util/List;)Ljava/lang/Object; " +
-      "withCapture(Ljava/lang/Object;)Ljava/util/List; " +
-      "withEqual(Ljava/lang/Object;)Ljava/lang/Object; withEqual(DD)D withEqual(FD)F " +
-      "withInstanceLike(Ljava/lang/Object;)Ljava/lang/Object; " +
-      "withInstanceOf(Ljava/lang/Class;)Ljava/lang/Object; " +
-      "withNotEqual(Ljava/lang/Object;)Ljava/lang/Object; " +
-      "withNull()Ljava/lang/Object; withNotNull()Ljava/lang/Object; " +
-      "withSameInstance(Ljava/lang/Object;)Ljava/lang/Object; " +
-      "withSubstring(Ljava/lang/CharSequence;)Ljava/lang/CharSequence; " +
-      "withPrefix(Ljava/lang/CharSequence;)Ljava/lang/CharSequence; " +
-      "withSuffix(Ljava/lang/CharSequence;)Ljava/lang/CharSequence; " +
-      "withMatch(Ljava/lang/CharSequence;)Ljava/lang/CharSequence;";
+   private static final String CLASS_DESC = "mockit/internal/expectations/ActiveInvocations";
 
    @Nonnull private final MethodWriter mw;
 
@@ -39,113 +20,16 @@ final class InvocationBlockModifier extends MethodVisitor
    @Nonnull private final String blockOwner;
    private final boolean callEndInvocations;
 
-   // Takes care of withCapture() matchers, if any:
+   // Keeps track of the current stack size (after each bytecode instruction) within the invocation block:
+   @Nonnegative private int stackSize;
+
+   // Handle withCapture()/anyXyz/withXyz matchers, if any:
+   @Nonnull final ArgumentMatching argumentMatching;
+   @Nonnull final ArgumentCapturing argumentCapturing;
    private boolean justAfterWithCaptureInvocation;
-   @Nonnull private final ArgumentCapturing argumentCapturing;
 
    // Stores the index of the local variable holding a list passed in a withCapture(List) call, if any:
-   private int lastLoadedVarIndex;
-
-   // Helper fields that allow argument matchers to be moved to the correct positions of their
-   // corresponding parameters:
-   @Nonnull private final int[] matcherStacks;
-   private int matcherCount;
-   private int stackSize;
-   @Nonnull private Type[] parameterTypes;
-
-   final class Capture
-   {
-      final int opcode;
-      final int varIndex;
-      @Nullable String typeToCapture;
-      private int parameterIndex;
-      private boolean parameterIndexFixed;
-
-      Capture(int opcode, int varIndex, @Nullable String typeToCapture)
-      {
-         this.opcode = opcode;
-         this.varIndex = varIndex;
-         this.typeToCapture = typeToCapture;
-         parameterIndex = matcherCount - 1;
-      }
-
-      Capture(int varIndex)
-      {
-         opcode = ALOAD;
-         this.varIndex = varIndex;
-         parameterIndex = matcherCount;
-      }
-
-      /**
-       * Generates bytecode that will be responsible for performing the following steps:
-       * 1. Get the argument value (an Object) for the last matched invocation.
-       * 2. Cast to a reference type or unbox to a primitive type, as needed.
-       * 3. Store the converted value in its local variable.
-       */
-      void generateCodeToStoreCapturedValue()
-      {
-         if (opcode != ALOAD) {
-            mw.visitIntInsn(SIPUSH, parameterIndex);
-            generateCallToActiveInvocationsMethod("matchedArgument", "(I)Ljava/lang/Object;");
-
-            Type argType = getArgumentType();
-            generateCastOrUnboxing(mw, argType, opcode);
-
-            mw.visitVarInsn(opcode, varIndex);
-         }
-      }
-
-      @Nonnull
-      private Type getArgumentType()
-      {
-         if (typeToCapture == null) {
-            return parameterTypes[parameterIndex];
-         }
-         else if (typeToCapture.charAt(0) == '[') {
-            return Type.getType(typeToCapture);
-         }
-         else {
-            return Type.getType('L' + typeToCapture + ';');
-         }
-      }
-
-      boolean fixParameterIndex(int originalIndex, int newIndex)
-      {
-         if (!parameterIndexFixed && parameterIndex == originalIndex) {
-            parameterIndex = newIndex;
-            parameterIndexFixed = true;
-            return true;
-         }
-
-         return false;
-      }
-
-      void generateCallToSetArgumentTypeIfNeeded()
-      {
-         if (opcode == ALOAD) {
-            mw.visitIntInsn(SIPUSH, parameterIndex);
-            mw.visitLdcInsn(varIndex);
-            generateCallToActiveInvocationsMethod("setExpectedArgumentType", "(II)V");
-         }
-         else if (typeToCapture != null && !isTypeToCaptureSameAsParameterType(typeToCapture)) {
-            mw.visitIntInsn(SIPUSH, parameterIndex);
-            mw.visitLdcInsn(typeToCapture);
-            generateCallToActiveInvocationsMethod("setExpectedArgumentType", "(ILjava/lang/String;)V");
-         }
-      }
-
-      private boolean isTypeToCaptureSameAsParameterType(@Nonnull String typeDesc)
-      {
-         Type parameterType = parameterTypes[parameterIndex];
-         int sort = parameterType.getSort();
-
-         if (sort == Type.OBJECT || sort == Type.ARRAY) {
-            return typeDesc.equals(parameterType.getInternalName());
-         }
-
-         return isPrimitiveWrapper(typeDesc);
-      }
-   }
+   @Nonnegative private int lastLoadedVarIndex;
 
    InvocationBlockModifier(@Nonnull MethodWriter mw, @Nonnull String blockOwner, boolean callEndInvocations)
    {
@@ -153,18 +37,23 @@ final class InvocationBlockModifier extends MethodVisitor
       this.mw = mw;
       this.blockOwner = blockOwner;
       this.callEndInvocations = callEndInvocations;
-      matcherStacks = new int[40];
+      argumentMatching = new ArgumentMatching(this);
       argumentCapturing = new ArgumentCapturing(this);
-      parameterTypes = NO_PARAMETERS;
    }
 
-   private void generateCallToActiveInvocationsMethod(@Nonnull String name, @Nonnull String desc)
+   void generateCallToActiveInvocationsMethod(@Nonnull String name)
+   {
+      mw.visitMethodInsn(INVOKESTATIC, CLASS_DESC, name, "()V", false);
+   }
+
+   void generateCallToActiveInvocationsMethod(@Nonnull String name, @Nonnull String desc)
    {
       visitMethodInstruction(INVOKESTATIC, CLASS_DESC, name, desc, false);
    }
 
    @Override
-   public void visitFieldInsn(int opcode, String owner, String name, String desc)
+   public void visitFieldInsn(
+      @Nonnegative int opcode, @Nonnull String owner, @Nonnull String name, @Nonnull String desc)
    {
       boolean getField = opcode == GETFIELD;
 
@@ -172,8 +61,9 @@ final class InvocationBlockModifier extends MethodVisitor
          if (name.indexOf('$') > 0) {
             // Nothing to do.
          }
-         else if (getField && name.startsWith("any") && ANY_FIELDS.contains(name)) {
-            generateCodeToAddArgumentMatcherForAnyField(owner, name, desc);
+         else if (getField && ArgumentMatching.isAnyField(name)) {
+            argumentMatching.generateCodeToAddArgumentMatcherForAnyField(owner, name, desc);
+            argumentMatching.addMatcher(stackSize);
             return;
          }
          else if (!getField && generateCodeThatReplacesAssignmentToSpecialField(name)) {
@@ -201,15 +91,7 @@ final class InvocationBlockModifier extends MethodVisitor
       return false;
    }
 
-   private void generateCodeToAddArgumentMatcherForAnyField(
-      @Nonnull String fieldOwner, @Nonnull String name, @Nonnull String desc)
-   {
-      mw.visitFieldInsn(GETFIELD, fieldOwner, name, desc);
-      generateCallToActiveInvocationsMethod(name, "()V");
-      matcherStacks[matcherCount++] = stackSize;
-   }
-
-   private static int stackSizeVariationForFieldAccess(int opcode, @Nonnull String fieldType)
+   private static int stackSizeVariationForFieldAccess(@Nonnegative int opcode, @Nonnull String fieldType)
    {
       char c = fieldType.charAt(0);
       boolean twoByteType = c == 'D' || c == 'J';
@@ -223,7 +105,8 @@ final class InvocationBlockModifier extends MethodVisitor
    }
 
    @Override
-   public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf)
+   public void visitMethodInsn(
+      @Nonnegative int opcode, @Nonnull String owner, @Nonnull String name, @Nonnull String desc, boolean itf)
    {
       if (opcode == INVOKESTATIC && (isBoxing(owner, name, desc) || isAccessMethod(owner, name))) {
          // It's an invocation to a primitive boxing method or to a synthetic method for private access, just ignore it.
@@ -236,7 +119,7 @@ final class InvocationBlockModifier extends MethodVisitor
 
          if (argumentCapturing.registerMatcher(withCaptureMethod, desc, lastLoadedVarIndex)) {
             justAfterWithCaptureInvocation = withCaptureMethod;
-            matcherStacks[matcherCount++] = stackSize;
+            argumentMatching.addMatcher(stackSize);
          }
       }
       else if (isUnboxing(opcode, owner, desc)) {
@@ -261,14 +144,22 @@ final class InvocationBlockModifier extends MethodVisitor
    private void visitMethodInstruction(
       @Nonnegative int opcode, @Nonnull String owner, @Nonnull String name, @Nonnull String desc, boolean itf)
    {
-      int argSize = Type.getArgumentsAndReturnSizes(desc);
-      int sizeVariation = (argSize & 0x03) - (argSize >> 2);
+      if (!"()V".equals(desc)) {
+         int argAndRetSize = Type.getArgumentsAndReturnSizes(desc);
+         int retSize = argAndRetSize & 0x03;
+         int argSize = argAndRetSize >> 2;
 
-      if (opcode == INVOKESTATIC) {
-         sizeVariation++;
+         if (opcode == INVOKESTATIC) {
+            argSize--;
+         }
+
+         stackSize -= argSize;
+         stackSize += retSize;
+      }
+      else if (opcode != INVOKESTATIC) {
+         stackSize--;
       }
 
-      stackSize += sizeVariation;
       mw.visitMethodInsn(opcode, owner, name, desc, itf);
    }
 
@@ -277,7 +168,7 @@ final class InvocationBlockModifier extends MethodVisitor
    {
       return
          opcode == INVOKEVIRTUAL && owner.equals(blockOwner) &&
-         name.startsWith("with") && WITH_METHODS.contains(name + desc);
+         ArgumentMatching.isCallToArgumentMatcher(name, desc);
    }
 
    private void generateCodeToReplaceNullWithZeroOnTopOfStack(@Nonnull String unboxingMethodDesc)
@@ -299,68 +190,14 @@ final class InvocationBlockModifier extends MethodVisitor
    private void handleMockedOrNonMockedInvocation(
       @Nonnegative int opcode, @Nonnull String owner, @Nonnull String name, @Nonnull String desc, boolean itf)
    {
-      if (matcherCount == 0) {
+      if (argumentMatching.getMatcherCount() == 0) {
          visitMethodInstruction(opcode, owner, name, desc, itf);
       }
       else {
-         boolean mockedInvocationUsingTheMatchers = handleInvocationParameters(desc);
+         boolean mockedInvocationUsingTheMatchers = argumentMatching.handleInvocationParameters(stackSize, desc);
          visitMethodInstruction(opcode, owner, name, desc, itf);
          handleArgumentCapturingIfNeeded(mockedInvocationUsingTheMatchers);
       }
-   }
-
-   private boolean handleInvocationParameters(@Nonnull String desc)
-   {
-      parameterTypes = Type.getArgumentTypes(desc);
-      int stackAfter = stackSize - sumOfParameterSizes();
-      boolean mockedInvocationUsingTheMatchers = stackAfter < matcherStacks[0];
-
-      if (mockedInvocationUsingTheMatchers) {
-         generateCallsToMoveArgMatchers(stackAfter);
-         argumentCapturing.generateCallsToSetArgumentTypesToCaptureIfAny();
-         matcherCount = 0;
-      }
-
-      return mockedInvocationUsingTheMatchers;
-   }
-
-   @Nonnegative
-   private int sumOfParameterSizes()
-   {
-      int sum = 0;
-
-      for (Type argType : parameterTypes) {
-         sum += argType.getSize();
-      }
-
-      return sum;
-   }
-
-   private void generateCallsToMoveArgMatchers(@Nonnegative int initialStack)
-   {
-      int stack = initialStack;
-      int nextMatcher = 0;
-      int matcherStack = matcherStacks[0];
-
-      for (int i = 0; i < parameterTypes.length && nextMatcher < matcherCount; i++) {
-         stack += parameterTypes[i].getSize();
-
-         if (stack == matcherStack || stack == matcherStack + 1) {
-            if (nextMatcher < i) {
-               generateCallToMoveArgMatcher(nextMatcher, i);
-               argumentCapturing.updateCaptureIfAny(nextMatcher, i);
-            }
-
-            matcherStack = matcherStacks[++nextMatcher];
-         }
-      }
-   }
-
-   private void generateCallToMoveArgMatcher(@Nonnegative int originalMatcherIndex, @Nonnegative int toIndex)
-   {
-      mw.visitIntInsn(SIPUSH, originalMatcherIndex);
-      mw.visitIntInsn(SIPUSH, toIndex);
-      generateCallToActiveInvocationsMethod("moveArgMatcher", "(II)V");
    }
 
    private void handleArgumentCapturingIfNeeded(boolean mockedInvocationUsingTheMatchers)
@@ -373,7 +210,7 @@ final class InvocationBlockModifier extends MethodVisitor
    }
 
    @Override
-   public void visitLabel(Label label)
+   public void visitLabel(@Nonnull Label label)
    {
       mw.visitLabel(label);
 
@@ -383,7 +220,7 @@ final class InvocationBlockModifier extends MethodVisitor
    }
 
    @Override
-   public void visitTypeInsn(int opcode, @Nonnull String type)
+   public void visitTypeInsn(@Nonnegative int opcode, @Nonnull String type)
    {
       argumentCapturing.registerTypeToCaptureIfApplicable(opcode, type);
 
@@ -395,7 +232,7 @@ final class InvocationBlockModifier extends MethodVisitor
    }
 
    @Override
-   public void visitIntInsn(int opcode, int operand)
+   public void visitIntInsn(@Nonnegative int opcode, int operand)
    {
       if (opcode != NEWARRAY) {
          stackSize++;
@@ -405,7 +242,7 @@ final class InvocationBlockModifier extends MethodVisitor
    }
 
    @Override
-   public void visitVarInsn(int opcode, @SuppressWarnings("ParameterNameDiffersFromOverriddenParameter") int varIndex)
+   public void visitVarInsn(@Nonnegative int opcode, @Nonnegative int varIndex)
    {
       if (opcode == ALOAD) {
          lastLoadedVarIndex = varIndex;
@@ -433,7 +270,7 @@ final class InvocationBlockModifier extends MethodVisitor
    }
 
    @Override
-   public void visitJumpInsn(int opcode, Label label)
+   public void visitJumpInsn(@Nonnegative int opcode, Label label)
    {
       if (opcode != JSR) {
          stackSize += Frame.SIZE[opcode];
@@ -457,17 +294,17 @@ final class InvocationBlockModifier extends MethodVisitor
    }
 
    @Override
-   public void visitMultiANewArrayInsn(String desc, int dims)
+   public void visitMultiANewArrayInsn(String desc, @Nonnegative int dims)
    {
       stackSize += 1 - dims;
       mw.visitMultiANewArrayInsn(desc, dims);
    }
 
    @Override
-   public void visitInsn(int opcode)
+   public void visitInsn(@Nonnegative int opcode)
    {
       if (opcode == RETURN && callEndInvocations) {
-         generateCallToActiveInvocationsMethod("endInvocations", "()V");
+         generateCallToActiveInvocationsMethod("endInvocations");
       }
       else {
          stackSize += Frame.SIZE[opcode];
@@ -479,7 +316,7 @@ final class InvocationBlockModifier extends MethodVisitor
    @Override
    public void visitLocalVariable(
       @Nonnull String name, @Nonnull String desc, @Nullable String signature, @Nonnull Label start, @Nonnull Label end,
-      int index)
+      @Nonnegative int index)
    {
       if (signature != null) {
          argumentCapturing.registerTypeToCaptureIntoListIfApplicable(index, signature);
@@ -491,4 +328,6 @@ final class InvocationBlockModifier extends MethodVisitor
          mw.visitLocalVariable(name, desc, signature, start, end, index);
       }
    }
+
+   @Nonnull MethodWriter getMethodWriter() { return mw; }
 }

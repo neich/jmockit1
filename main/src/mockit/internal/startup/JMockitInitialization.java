@@ -5,21 +5,20 @@
 package mockit.internal.startup;
 
 import java.lang.instrument.*;
+import java.util.*;
 import javax.annotation.*;
 
 import mockit.*;
 import mockit.coverage.*;
 import mockit.integration.junit4.internal.*;
+import mockit.internal.reflection.*;
 import mockit.internal.util.*;
 
 final class JMockitInitialization
 {
    @Nonnull private final StartupConfiguration config;
 
-   JMockitInitialization()
-   {
-      config = new StartupConfiguration();
-   }
+   JMockitInitialization() { config = new StartupConfiguration(); }
 
    void initialize(@Nonnull Instrumentation inst)
    {
@@ -35,14 +34,19 @@ final class JMockitInitialization
 
    private static void preventEventualClassLoadingConflicts()
    {
+      // Ensure the proper loading of data files by the JRE, whose names depend on calls to the System class,
+      // which may get @Mocked.
+      TimeZone.getDefault();
+      Currency.getInstance(Locale.getDefault());
+
       DefaultValues.computeForReturnType("()J");
+      Utilities.calledFromSpecialThread();
    }
 
    private void applyInternalStartupMocksAsNeeded()
    {
       if (MockFrameworkMethod.hasDependenciesInClasspath()) {
          new RunNotifierDecorator();
-         new BlockJUnit4ClassRunnerDecorator();
          new MockFrameworkMethod();
       }
    }

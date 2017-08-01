@@ -4,15 +4,15 @@
    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
    <modelVersion>4.0.0</modelVersion>
 
-   <groupId>org.jmockit</groupId><artifactId>jmockit</artifactId><version>1.30</version>
+   <groupId>org.jmockit</groupId><artifactId>jmockit</artifactId><version>1.34</version>
    <packaging>jar</packaging>
 
    <name>Main</name>
    <description>
       JMockit is a Java toolkit for automated developer testing.
-      It contains mocking and faking APIs and a code coverage tool, supporting both JUnit and TestNG.
-      The mocking API allows all kinds of Java code, without testability restrictions, to be tested
-      in isolation from selected dependencies.
+      It contains APIs for the creation of the objects to be tested, for mocking dependencies, and for faking external
+      APIs; JUnit (4 &amp; 5) and TestNG test runners are supported.
+      It also contains an advanced code coverage tool.
    </description>
    <url>http://www.jmockit.org</url>
    <licenses>
@@ -33,13 +33,6 @@
       <system>GitHub Issues</system>
       <url>https://github.com/jmockit/jmockit1/issues</url>
    </issueManagement>
-   <mailingLists>
-      <mailingList>
-         <name>JMockit Users</name>
-         <archive>http://groups.google.com/group/jmockit-users</archive>
-         <post>jmockit-users@googlegroups.com</post>
-      </mailingList>
-   </mailingLists>
 
    <properties>
       <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -112,7 +105,7 @@
             </executions>
          </plugin>
          <plugin>
-            <artifactId>maven-compiler-plugin</artifactId><version>3.5.1</version>
+            <artifactId>maven-compiler-plugin</artifactId><version>3.6.1</version>
             <configuration>
                <encoding>UTF-8</encoding>
                <source>1.7</source><target>1.7</target>
@@ -121,7 +114,7 @@
             </configuration>
          </plugin>
          <plugin>
-            <artifactId>maven-jar-plugin</artifactId><version>2.6</version>
+            <artifactId>maven-jar-plugin</artifactId><version>3.0.2</version>
             <configuration>
                <archive>
                   <addMavenDescriptor>false</addMavenDescriptor>
@@ -138,7 +131,7 @@
             </configuration>
          </plugin>
          <plugin>
-            <artifactId>maven-source-plugin</artifactId><version>3.0.0</version>
+            <artifactId>maven-source-plugin</artifactId><version>3.0.1</version>
             <configuration>
                <excludes>
                   <exclude>*</exclude>
@@ -154,7 +147,7 @@
             </executions>
          </plugin>
          <plugin>
-            <artifactId>maven-javadoc-plugin</artifactId><version>2.10.3</version>
+            <artifactId>maven-javadoc-plugin</artifactId><version>2.10.4</version>
             <configuration>
                <encoding>UTF-8</encoding>
                <nodeprecated>true</nodeprecated>
@@ -184,7 +177,7 @@
             </executions>
          </plugin>
          <plugin>
-            <artifactId>maven-surefire-plugin</artifactId><version>2.19.1</version>
+            <artifactId>maven-surefire-plugin</artifactId><version>2.20</version>
             <configuration>
                <skipTests>true</skipTests>
                <disableXmlReport>true</disableXmlReport>
@@ -203,7 +196,6 @@
                         <exclude>**/Base*Test.class</exclude>
                         <exclude>**/JUnit4DecoratorTest.class</exclude>
                         <exclude>**/testng/*Test.class</exclude>
-                        <exclude>**/MockStateBetweenTestMethodsNGTest.class</exclude>
                         <exclude>**/mockit/integration/TestedClass.class</exclude>
                      </excludes>
                   </configuration>
@@ -239,7 +231,7 @@
 <!--
          <plugin>
             <groupId>org.sonatype.plugins</groupId><artifactId>nexus-staging-maven-plugin</artifactId>
-            <version>1.6.7</version>
+            <version>1.6.8</version>
             <extensions>true</extensions>
             <configuration>
                <serverId>sonatype-nexus-staging</serverId>
@@ -304,7 +296,7 @@
 
    <dependencies>
       <dependency>
-         <groupId>com.google.code.findbugs</groupId><artifactId>jsr305</artifactId><version>3.0.0</version>
+         <groupId>com.google.code.findbugs</groupId><artifactId>jsr305</artifactId><version>3.0.2</version>
          <optional>true</optional>
       </dependency>
       <dependency>
@@ -312,7 +304,7 @@
          <optional>true</optional>
       </dependency>
       <dependency>
-         <groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter-engine</artifactId><version>5.0.0-M2</version>
+         <groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter-engine</artifactId><version>5.0.0-M4</version>
          <optional>true</optional>
       </dependency>
       <dependency>

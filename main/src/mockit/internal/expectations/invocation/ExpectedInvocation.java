@@ -11,9 +11,10 @@ import javax.annotation.*;
 import mockit.external.asm.*;
 import mockit.internal.*;
 import mockit.internal.expectations.argumentMatching.*;
+import mockit.internal.reflection.*;
 import mockit.internal.state.*;
 import mockit.internal.util.*;
-import mockit.internal.util.GenericTypeReflection.*;
+import mockit.internal.reflection.GenericTypeReflection.*;
 import static mockit.external.asm.Type.getType;
 import static mockit.internal.util.TypeDescriptor.getClassForType;
 
@@ -87,7 +88,7 @@ public final class ExpectedInvocation
          String classDesc = getClassDesc();
          Class<?> mockedClass = instance != null ? instance.getClass() : ClassLoad.loadByInternalName(classDesc);
          GenericTypeReflection reflection = new GenericTypeReflection(mockedClass, null);
-         signature = reflection.resolveReturnType(classDesc, signature);
+         signature = reflection.resolveSignature(classDesc, signature);
 
          char firstTypeChar = signature.charAt(signature.indexOf(')') + 1);
 
@@ -104,7 +105,7 @@ public final class ExpectedInvocation
    public boolean isMatch(@Nullable Object mock, @Nonnull String invokedClassDesc, @Nonnull String invokedMethod)
    {
       return
-         invokedClassDesc.equals(getClassDesc()) &&
+         (invokedClassDesc.equals(getClassDesc()) || mock != null && TestRun.mockFixture().isCaptured(mock)) &&
          (isMatchingGenericMethod(mock, invokedMethod) || isMatchingMethod(invokedMethod));
    }
 
@@ -240,7 +241,8 @@ public final class ExpectedInvocation
    @Nonnull
    public UnexpectedInvocation errorForUnexpectedInvocation()
    {
-      return newUnexpectedInvocationWithCause("Unexpected invocation", "Unexpected invocation of" + this);
+      String initialMessage = "Unexpected invocation of " + this;
+      return newUnexpectedInvocationWithCause("Unexpected invocation", initialMessage);
    }
 
    @Nonnull
@@ -353,27 +355,32 @@ public final class ExpectedInvocation
    @Nonnull
    public UnexpectedInvocation errorForUnexpectedInvocationBeforeAnother(@Nonnull ExpectedInvocation another)
    {
-      return newUnexpectedInvocationWithCause("Unexpected invocation" + this, "Unexpected invocation before" + another);
+      String titleForCause = "Unexpected invocation " + this;
+      String initialMessage = "Unexpected invocation before " + another;
+      return newUnexpectedInvocationWithCause(titleForCause, initialMessage);
    }
 
    @Nonnull
    public UnexpectedInvocation errorForUnexpectedInvocationFoundBeforeAnother()
    {
-      String initialMessage = "Invocation occurred unexpectedly before another" + this;
+      String initialMessage = "Invocation occurred unexpectedly before another " + this;
       return newUnexpectedInvocationWithCause("Unexpected invocation", initialMessage);
    }
 
    @Nonnull
    public UnexpectedInvocation errorForUnexpectedInvocationFoundBeforeAnother(@Nonnull ExpectedInvocation another)
    {
+      String titleForCause = "Unexpected invocation " + this;
       String initialMessage = "Another invocation unexpectedly occurred before" + another;
-      return newUnexpectedInvocationWithCause("Unexpected invocation" + this, initialMessage);
+      return newUnexpectedInvocationWithCause(titleForCause, initialMessage);
    }
 
    @Nonnull
    public UnexpectedInvocation errorForUnexpectedInvocationAfterAnother(@Nonnull ExpectedInvocation another)
    {
-      return newUnexpectedInvocationWithCause("Unexpected invocation" + this, "Unexpected invocation after" + another);
+      String titleForCause = "Unexpected invocation " + this;
+      String initialMessage = "Unexpected invocation after " + another;
+      return newUnexpectedInvocationWithCause(titleForCause, initialMessage);
    }
 
    @Nonnull @Override
@@ -443,6 +450,11 @@ public final class ExpectedInvocation
          }
 
          String returnTypeDesc = DefaultValues.getReturnTypeDesc(arguments.methodNameAndDesc);
+
+         if ("V".equals(returnTypeDesc)) {
+            return null;
+         }
+
          defaultReturnValue = DefaultValues.computeForType(returnTypeDesc);
 
          if (defaultReturnValue == null) {

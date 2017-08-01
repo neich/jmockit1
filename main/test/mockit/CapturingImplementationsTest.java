@@ -8,6 +8,8 @@ import java.io.*;
 import java.lang.management.*;
 import java.lang.reflect.*;
 
+import javax.xml.parsers.*;
+
 import org.junit.*;
 import static org.junit.Assert.*;
 
@@ -185,6 +187,17 @@ public final class CapturingImplementationsTest
       assertEquals(0, threadCount);
    }
 
+   @Test
+   public void captureClassesFromTheSAXParserAPI(@Capturing final SAXParser anyParser) throws Exception
+   {
+      new Expectations() {{ anyParser.isNamespaceAware(); result = true; }};
+
+      SAXParser parser = SAXParserFactory.newInstance().newSAXParser();
+      boolean b = parser.isNamespaceAware();
+
+      assertTrue(b);
+   }
+
    interface Interface2 { int doSomething(); }
    interface SubInterface2 extends Interface2 {}
    static class ClassImplementingSubInterfaceAndExtendingUnrelatedBase extends Implementation implements SubInterface2 {
@@ -224,5 +237,34 @@ public final class CapturingImplementationsTest
       impl.doSomething(0);
 
       assertEquals(2, i);
+   }
+
+   static class Base2 { void base() {} }
+   static class Sub extends Base2 {}
+   static class Sub2 extends Sub { @Override void base() { throw new RuntimeException(); } }
+
+   @Test
+   public void verifyInvocationToMethodFromBaseClassOnCapturedSubclassOfIntermediateSubclass(@Capturing final Sub sub)
+   {
+      Sub impl = new Sub2();
+      impl.base();
+
+      new Verifications() {{
+         sub.base();
+      }};
+   }
+
+   public interface BaseItf { void base(); }
+   public interface SubItf extends BaseItf {}
+
+   @Test
+   public void verifyInvocationToBaseInterfaceMethodOnCapturedImplementationOfSubInterface(@Capturing final SubItf sub)
+   {
+      SubItf impl = new SubItf() { @Override public void base() {} };
+      impl.base();
+
+      new Verifications() {{
+         sub.base();
+      }};
    }
 }

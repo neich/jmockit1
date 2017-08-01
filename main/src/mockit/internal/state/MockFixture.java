@@ -7,6 +7,7 @@ package mockit.internal.state;
 import java.lang.reflect.*;
 import java.util.*;
 import java.util.Map.*;
+import java.util.concurrent.*;
 import javax.annotation.*;
 import static java.lang.reflect.Modifier.*;
 
@@ -67,7 +68,7 @@ public final class MockFixture
    public MockFixture()
    {
       transformedClasses = new HashMap<ClassIdentification, byte[]>(2);
-      redefinedClasses = new IdentityHashMap<Class<?>, byte[]>(8);
+      redefinedClasses = new ConcurrentHashMap<Class<?>, byte[]>(8);
       redefinedClassesWithNativeMethods = new HashSet<String>();
       realClassesToMockClasses = new IdentityHashMap<Class<?>, String>(8);
       mockedClasses = new ArrayList<Class<?>>();
@@ -379,10 +380,10 @@ public final class MockFixture
    }
 
    @Nullable
-   public CaptureOfNewInstances findCaptureOfImplementations(@Nonnull Class<?> baseType)
+   public CaptureOfNewInstances findCaptureOfImplementations(@Nonnull Class<?> capturedType)
    {
       for (CaptureTransformer<?> captureTransformer : captureTransformers) {
-         CaptureOfNewInstances capture = captureTransformer.getCaptureOfImplementationsIfApplicable(baseType);
+         CaptureOfNewInstances capture = captureTransformer.getCaptureOfImplementationsIfApplicable(capturedType);
 
          if (capture != null) {
             return capture;
@@ -390,6 +391,13 @@ public final class MockFixture
       }
 
       return null;
+   }
+
+   public boolean isCaptured(@Nonnull Object mock)
+   {
+      Class<?> mockedClass = getMockedClass(mock);
+      CaptureOfNewInstances capture = findCaptureOfImplementations(mockedClass);
+      return capture != null;
    }
 
    public boolean areCapturedClasses(@Nonnull Class<?> mockedClass1, @Nonnull Class<?> mockedClass2)

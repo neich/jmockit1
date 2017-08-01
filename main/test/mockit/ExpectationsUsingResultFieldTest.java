@@ -126,23 +126,6 @@ public final class ExpectationsUsingResultFieldTest
    }
 
    @Test
-   public void recordThrowingOfMockException(
-      @Mocked final Collaborator mock, @Mocked final IllegalFormatWidthException e)
-   {
-      new Expectations() {{
-         mock.provideSomeService(); result = e;
-         e.getMessage(); result = "foo";
-      }};
-
-      try {
-         mock.provideSomeService();
-      }
-      catch (Throwable t) {
-         assertEquals("foo", t.getMessage());
-      }
-   }
-
-   @Test
    public void returnsMultipleExpectedValues(@Mocked final Collaborator mock)
    {
       new Expectations() {{
@@ -508,12 +491,17 @@ public final class ExpectationsUsingResultFieldTest
    }
 
    @Test
-   public void recordNullReturnValueForConstructorAndVoidMethod(@Mocked final Collaborator mock)
+   public void recordNullReturnValueForConstructor(@Mocked Collaborator mock)
    {
-      new Expectations() {{
-         new Collaborator(); result = null;
-         mock.provideSomeService(); result = null;
-      }};
+      new Expectations() {{ new Collaborator(); result = null; }};
+
+      new Collaborator().provideSomeService();
+   }
+
+   @Test
+   public void recordNullReturnValueForVoidMethod(@Mocked final Collaborator mock)
+   {
+      new Expectations() {{ mock.provideSomeService(); result = null; }};
 
       new Collaborator().provideSomeService();
    }

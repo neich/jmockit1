@@ -9,30 +9,36 @@ import java.lang.reflect.*;
 import java.security.*;
 import javax.annotation.*;
 
+import mockit.internal.reflection.*;
 import mockit.internal.util.*;
 
-final class TestedClass
+public final class TestedClass
 {
    @Nonnull final Type declaredType;
-   @Nonnull final Class<?> targetClass;
-   @Nonnull final GenericTypeReflection reflection;
+   @Nonnull final Class<?> declaredClass;
+   @Nonnull public final Class<?> targetClass;
+   @Nonnull public final GenericTypeReflection reflection;
    @Nonnull final ProtectionDomain protectionDomainOfTestedClass;
    @Nullable final String codeLocationParentPath;
-   @Nonnull final String nameOfTestedClass;
+   @Nonnull public final String nameOfTestedClass;
 
    TestedClass(@Nonnull Type declaredType, @Nonnull Class<?> targetClass)
    {
       this.declaredType = declaredType;
+      declaredClass = Utilities.getClassType(declaredType);
       this.targetClass = targetClass;
-      reflection = new GenericTypeReflection(targetClass, declaredType, false);
-      protectionDomainOfTestedClass = targetClass.getProtectionDomain();
+      reflection = new GenericTypeReflection(declaredClass, declaredType, false);
+      protectionDomainOfTestedClass = declaredClass.getProtectionDomain();
       CodeSource codeSource = protectionDomainOfTestedClass.getCodeSource();
       codeLocationParentPath = codeSource == null || codeSource.getLocation() == null ?
          null : new File(codeSource.getLocation().getPath()).getParent();
-      nameOfTestedClass = targetClass.getName();
+      nameOfTestedClass = declaredClass.getName();
    }
 
-   boolean isClassFromSameModuleOrSystemAsTestedClass(@Nonnull Class<?> anotherClass)
+   @Nonnull
+   public Class<?> getDeclaredClass() { return declaredClass; }
+
+   public boolean isClassFromSameModuleOrSystemAsTestedClass(@Nonnull Class<?> anotherClass)
    {
       if (anotherClass.getClassLoader() == null) {
          return false;

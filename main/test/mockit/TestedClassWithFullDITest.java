@@ -6,6 +6,8 @@ package mockit;
 
 import java.lang.annotation.*;
 
+import javax.persistence.*;
+
 import org.junit.*;
 import org.junit.runners.*;
 import static org.junit.Assert.*;
@@ -103,5 +105,29 @@ public final class TestedClassWithFullDITest
    public void useTestedObjectOfSubtypeForAbstractDependencyTypeInAnotherTestedObject()
    {
       assertSame(concreteDependency, tested4.dependency);
+   }
+
+   static class A { B b1; }
+   static class B { B b2; }
+   @Tested(fullyInitialized = true) A a;
+
+   @Test
+   public void instantiateClassDependentOnAnotherHavingFieldOfItsOwnType()
+   {
+      B b1 = a.b1;
+      assertNotNull(b1);
+
+      B b2 = b1.b2;
+      assertNotNull(b2);
+      assertSame(b1, b2);
+   }
+
+   @Entity static class Person {}
+   static class ClassWithJPAEntityField { Person person; }
+
+   @Test
+   public void instantiateClassWithJPAEntityField(@Tested(fullyInitialized = true) ClassWithJPAEntityField tested)
+   {
+      assertNull(tested.person);
    }
 }

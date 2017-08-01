@@ -122,6 +122,7 @@ public final class TestNGRunnerDecorator extends TestRunnerDecorator
       TestRun.enterNoMockingZone();
 
       try {
+         TestRun.clearCurrentTestInstance();
          updateTestClassState(testInstance, testClass);
          TestRun.setRunningIndividualTest(testInstance);
 
@@ -135,7 +136,7 @@ public final class TestNGRunnerDecorator extends TestRunnerDecorator
 
          if (!isMethodWithParametersProvidedByTestNG(method)) {
             Object[] parameters = testResult.getParameters();
-            Object[] mockParameters = createInstancesForMockParameters(method, parameters);
+            Object[] mockParameters = createInstancesForAnnotatedParameters(testInstance, method, parameters);
 
             if (mockParameters != null) {
                System.arraycopy(mockParameters, 0, parameters, 0, parameters.length);

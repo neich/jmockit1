@@ -14,7 +14,7 @@ import mockit.internal.startup.*;
 import mockit.internal.state.*;
 import mockit.internal.util.*;
 import static mockit.external.asm.ClassReader.*;
-import static mockit.internal.util.FieldReflection.*;
+import static mockit.internal.reflection.FieldReflection.*;
 
 public class CaptureOfNewInstances extends CaptureOfImplementations<MockedType>
 {
@@ -107,7 +107,7 @@ public class CaptureOfNewInstances extends CaptureOfImplementations<MockedType>
 
    @Nonnull @Override
    protected final BaseClassModifier createModifier(
-      @Nullable ClassLoader cl, @Nonnull ClassReader cr, @Nonnull Class<?> baseType, @Nonnull MockedType typeMetadata)
+      @Nullable ClassLoader cl, @Nonnull ClassReader cr, @Nonnull Class<?> baseType, @Nullable MockedType typeMetadata)
    {
       ExpectationsModifier modifier = newModifier(cl, cr, baseType, typeMetadata);
 

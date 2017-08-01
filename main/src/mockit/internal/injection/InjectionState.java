@@ -13,34 +13,37 @@ import javax.inject.*;
 import javax.servlet.*;
 
 import mockit.internal.expectations.mocking.*;
+import mockit.internal.reflection.*;
 import mockit.internal.state.*;
-import mockit.internal.util.*;
 import static mockit.internal.injection.InjectionPoint.*;
+import static mockit.internal.reflection.MethodReflection.*;
 import static mockit.internal.util.Utilities.getClassType;
 
 /**
  * Holds state used throughout the injection process while it's in progress for a given set of tested objects.
  */
-final class InjectionState implements BeanExporter
+public final class InjectionState implements BeanExporter
 {
    @Nonnull private static final Map<InjectionPoint, Object> globalDependencies =
       new ConcurrentHashMap<InjectionPoint, Object>(2);
 
+   @Nonnull final Map<ParameterizedType, Method> interfaceResolutionMethods;
    @Nonnull private final Map<InjectionPoint, Object> testedObjects;
    @Nonnull private final Map<InjectionPoint, Object> instantiatedDependencies;
    @Nonnull private List<MockedType> injectables;
-   @Nonnull private List<InjectionPointProvider> consumedInjectables;
-   @Nonnull final LifecycleMethods lifecycleMethods;
+   @Nonnull private List<InjectionProvider> consumedInjectionProviders;
+   @Nonnull public final LifecycleMethods lifecycleMethods;
    private GenericTypeReflection testedTypeReflection;
    private Object currentTestClassInstance;
    private Type typeOfInjectionPoint;
 
    InjectionState()
    {
-      testedObjects = new HashMap<InjectionPoint, Object>();
-      instantiatedDependencies = new HashMap<InjectionPoint, Object>();
+      interfaceResolutionMethods = new HashMap<ParameterizedType, Method>();
+      testedObjects = new LinkedHashMap<InjectionPoint, Object>();
+      instantiatedDependencies = new LinkedHashMap<InjectionPoint, Object>();
       injectables = Collections.emptyList();
-      consumedInjectables = new ArrayList<InjectionPointProvider>();
+      consumedInjectionProviders = new ArrayList<InjectionProvider>();
       lifecycleMethods = new LifecycleMethods();
    }
 
@@ -61,7 +64,7 @@ final class InjectionState implements BeanExporter
    private void getServletConfigForInitMethodsIfAny(@Nonnull Object testClassInstance)
    {
       if (SERVLET_CLASS != null) {
-         for (InjectionPointProvider injectable : injectables) {
+         for (InjectionProvider injectable : injectables) {
             if (injectable.getDeclaredType() == ServletConfig.class) {
                lifecycleMethods.servletConfig = injectable.getValue(testClassInstance);
                break;
@@ -70,22 +73,24 @@ final class InjectionState implements BeanExporter
       }
    }
 
+   void buildListsOfInjectables(@Nonnull Object testClassInstance, @Nonnull ParameterTypeRedefinitions paramTypeRedefs)
+   {
+      currentTestClassInstance = testClassInstance;
+      injectables = new ArrayList<MockedType>(paramTypeRedefs.getInjectableParameters());
+
+      getServletConfigForInitMethodsIfAny(testClassInstance);
+   }
+
    Object getCurrentTestClassInstance() { return currentTestClassInstance; }
 
    void setTestedTypeReflection(@Nonnull GenericTypeReflection reflection) { testedTypeReflection = reflection; }
 
-   void setTypeOfInjectionPoint(@Nonnull Type typeOfInjectionPoint)
+   public void setTypeOfInjectionPoint(@Nonnull Type typeOfInjectionPoint)
    {
       this.typeOfInjectionPoint = typeOfInjectionPoint;
    }
 
-   private boolean hasSameTypeAsInjectionPoint(@Nonnull InjectionPointProvider injectable)
-   {
-      Type declaredType = injectable.getDeclaredType();
-      return isSameTypeAsInjectionPoint(declaredType);
-   }
-
-   boolean isSameTypeAsInjectionPoint(@Nonnull Type injectableType)
+   public boolean isAssignableToInjectionPoint(@Nonnull Type injectableType)
    {
       if (testedTypeReflection.areMatchingTypes(typeOfInjectionPoint, injectableType)) {
          return true;
@@ -116,15 +121,21 @@ final class InjectionState implements BeanExporter
    }
 
    @Nullable
-   MockedType findNextInjectableForInjectionPoint()
+   public MockedType findNextInjectableForInjectionPoint()
    {
       for (MockedType injectable : injectables) {
-         if (hasSameTypeAsInjectionPoint(injectable) && !consumedInjectables.contains(injectable)) {
+         if (hasTypeAssignableToInjectionPoint(injectable) && !consumedInjectionProviders.contains(injectable)) {
             return injectable;
          }
       }
 
       return null;
+   }
+
+   private boolean hasTypeAssignableToInjectionPoint(@Nonnull InjectionProvider injectable)
+   {
+      Type declaredType = injectable.getDeclaredType();
+      return isAssignableToInjectionPoint(declaredType);
    }
 
    @Nonnull
@@ -133,7 +144,7 @@ final class InjectionState implements BeanExporter
       List<MockedType> found = new ArrayList<MockedType>();
 
       for (MockedType injectable : injectables) {
-         if (hasSameTypeAsInjectionPoint(injectable) && !consumedInjectables.contains(injectable)) {
+         if (hasTypeAssignableToInjectionPoint(injectable) && !consumedInjectionProviders.contains(injectable)) {
             found.add(injectable);
          }
       }
@@ -142,7 +153,7 @@ final class InjectionState implements BeanExporter
    }
 
    @Nullable
-   InjectionPointProvider getProviderByTypeAndOptionallyName(@Nonnull String nameOfInjectionPoint)
+   public InjectionProvider getProviderByTypeAndOptionallyName(@Nonnull String nameOfInjectionPoint)
    {
       Type elementTypeOfIterable = getElementTypeIfIterable(typeOfInjectionPoint);
 
@@ -151,13 +162,6 @@ final class InjectionState implements BeanExporter
       }
 
       return findInjectableByTypeAndOptionallyName(nameOfInjectionPoint);
-   }
-
-   @Nullable
-   Object getValueForParameterFromTestedField(@Nonnull String nameOfInjectionPoint)
-   {
-      InjectionPoint injectionPoint = new InjectionPoint(typeOfInjectionPoint, nameOfInjectionPoint);
-      return testedObjects.get(injectionPoint);
    }
 
    @Nullable
@@ -176,7 +180,7 @@ final class InjectionState implements BeanExporter
    }
 
    @Nullable
-   private InjectionPointProvider findInjectablesByTypeOnly(@Nonnull Type elementType)
+   private InjectionProvider findInjectablesByTypeOnly(@Nonnull Type elementType)
    {
       MultiValuedProvider found = null;
 
@@ -190,7 +194,7 @@ final class InjectionState implements BeanExporter
             return injectable;
          }
 
-         if (isSameTypeAsInjectionPoint(injectableType)) {
+         if (isAssignableToInjectionPoint(injectableType)) {
             if (found == null) {
                found = new MultiValuedProvider(elementType);
             }
@@ -203,30 +207,30 @@ final class InjectionState implements BeanExporter
    }
 
    @Nullable
-   private MockedType findInjectableByTypeAndOptionallyName(@Nonnull String nameOfInjectionPoint)
+   private InjectionProvider findInjectableByTypeAndOptionallyName(@Nonnull String nameOfInjectionPoint)
    {
-      MockedType found = null;
+      MockedType foundInjectable = null;
 
       for (MockedType injectable : injectables) {
-         if (hasSameTypeAsInjectionPoint(injectable)) {
+         if (hasTypeAssignableToInjectionPoint(injectable)) {
             if (nameOfInjectionPoint.equals(injectable.getName())) {
                return injectable;
             }
 
-            if (found == null) {
-               found = injectable;
+            if (foundInjectable == null) {
+               foundInjectable = injectable;
             }
          }
       }
 
-      return found;
+      return foundInjectable;
    }
 
    @Nullable
-   MockedType findInjectableByTypeAndName(@Nonnull String nameOfInjectionPoint)
+   public MockedType findInjectableByTypeAndName(@Nonnull String nameOfInjectionPoint)
    {
       for (MockedType injectable : injectables) {
-         if (hasSameTypeAsInjectionPoint(injectable) && nameOfInjectionPoint.equals(injectable.getName())) {
+         if (hasTypeAssignableToInjectionPoint(injectable) && nameOfInjectionPoint.equals(injectable.getName())) {
             return injectable;
          }
       }
@@ -235,37 +239,34 @@ final class InjectionState implements BeanExporter
    }
 
    @Nullable
-   Object getValueToInject(@Nonnull InjectionPointProvider injectable)
+   public Object getValueToInject(@Nonnull InjectionProvider injectionProvider)
    {
-      if (consumedInjectables.contains(injectable)) {
+      if (consumedInjectionProviders.contains(injectionProvider)) {
          return null;
       }
 
-      Object value = injectable.getValue(currentTestClassInstance);
+      Object value = injectionProvider.getValue(currentTestClassInstance);
 
       if (value != null) {
-         consumedInjectables.add(injectable);
+         consumedInjectionProviders.add(injectionProvider);
       }
 
       return value;
    }
 
-   void resetConsumedInjectables()
-   {
-      consumedInjectables.clear();
-   }
+   void resetConsumedInjectionProviders() { consumedInjectionProviders.clear(); }
 
    @Nonnull
-   List<InjectionPointProvider> saveConsumedInjectables()
+   public List<InjectionProvider> saveConsumedInjectionProviders()
    {
-      List<InjectionPointProvider> previousConsumedInjectables = consumedInjectables;
-      consumedInjectables = new ArrayList<InjectionPointProvider>();
-      return previousConsumedInjectables;
+      List<InjectionProvider> previouslyConsumed = consumedInjectionProviders;
+      consumedInjectionProviders = new ArrayList<InjectionProvider>();
+      return previouslyConsumed;
    }
 
-   void restoreConsumedInjectables(@Nonnull List<InjectionPointProvider> previousConsumedInjectables)
+   public void restoreConsumedInjectionProviders(@Nonnull List<InjectionProvider> previouslyConsumed)
    {
-      consumedInjectables = previousConsumedInjectables;
+      consumedInjectionProviders = previouslyConsumed;
    }
 
    void saveTestedObject(@Nonnull InjectionPoint key, @Nonnull Object testedObject)
@@ -275,6 +276,20 @@ final class InjectionState implements BeanExporter
 
    @Nullable
    Object getTestedInstance(@Nonnull Type testedType, @Nonnull String nameOfInjectionPoint)
+   {
+      Object testedInstance = instantiatedDependencies.isEmpty() ?
+         null : findPreviouslyInstantiatedDependency(testedType, nameOfInjectionPoint);
+
+      if (testedInstance == null) {
+         testedInstance = testedObjects.isEmpty() ?
+            null : getValueFromExistingTestedObject(testedType, nameOfInjectionPoint);
+      }
+
+      return testedInstance;
+   }
+
+   @Nullable
+   private Object findPreviouslyInstantiatedDependency(@Nonnull Type testedType, @Nonnull String nameOfInjectionPoint)
    {
       InjectionPoint injectionPoint = new InjectionPoint(testedType, nameOfInjectionPoint);
       Object dependency = instantiatedDependencies.get(injectionPoint);
@@ -291,13 +306,59 @@ final class InjectionState implements BeanExporter
       return dependency;
    }
 
-   @Nullable @SuppressWarnings("unchecked")
-   <D> D getGlobalDependency(@Nonnull InjectionPoint key) { return (D) globalDependencies.get(key); }
+   @Nullable
+   private Object getValueFromExistingTestedObject(@Nonnull Type testedType, @Nonnull String nameOfInjectionPoint)
+   {
+      InjectionPoint injectionPoint = new InjectionPoint(testedType, nameOfInjectionPoint);
+
+      for (Object testedObject : testedObjects.values()) {
+         Object fieldValue = getValueFromFieldOfEquivalentTypeAndName(injectionPoint, testedObject);
+
+         if (fieldValue != null) {
+            return fieldValue;
+         }
+      }
+
+      return null;
+   }
 
    @Nullable
-   Object getInstantiatedDependency(
-      @Nonnull TestedClass testedClass, @Nonnull InjectionPointProvider injectionProvider,
-      @Nonnull InjectionPoint dependencyKey)
+   private static Object getValueFromFieldOfEquivalentTypeAndName(
+      @Nonnull InjectionPoint injectionPoint, @Nonnull Object testedObject)
+   {
+      for (Field internalField : testedObject.getClass().getDeclaredFields()) {
+         Type fieldType = internalField.getGenericType();
+         String qualifiedName = getQualifiedName(internalField.getDeclaredAnnotations());
+         boolean qualified = qualifiedName != null;
+         String fieldName = qualified ? qualifiedName : internalField.getName();
+         InjectionPoint internalInjectionPoint = new InjectionPoint(fieldType, fieldName, qualified);
+
+         if (internalInjectionPoint.equals(injectionPoint)) {
+            Object fieldValue = FieldReflection.getFieldValue(internalField, testedObject);
+            return fieldValue;
+         }
+      }
+
+      return null;
+   }
+
+   @Nullable @SuppressWarnings("unchecked")
+   public static <D> D getGlobalDependency(@Nonnull InjectionPoint key) { return (D) globalDependencies.get(key); }
+
+   @Nullable
+   public Object getTestedValue(@Nonnull TestedClass testedClass, @Nonnull InjectionPoint injectionPoint)
+   {
+      Object testedValue = testedObjects.get(injectionPoint);
+
+      if (testedValue == null) {
+         testedValue = findMatchingObject(testedObjects, testedClass.reflection, injectionPoint);
+      }
+
+      return testedValue;
+   }
+
+   @Nullable
+   public Object getInstantiatedDependency(@Nonnull TestedClass testedClass, @Nonnull InjectionPoint dependencyKey)
    {
       Object dependency = testedObjects.get(dependencyKey);
 
@@ -308,10 +369,10 @@ final class InjectionState implements BeanExporter
             dependency = instantiatedDependencies.get(dependencyKey);
 
             if (dependency == null) {
-               dependency = findMatchingObject(instantiatedDependencies, null, dependencyKey);
+               dependency = findMatchingObject(instantiatedDependencies, testedClass.reflection, dependencyKey);
 
                if (dependency == null) {
-                  dependency = findMatchingObject(globalDependencies, null, dependencyKey);
+                  dependency = findMatchingObject(globalDependencies, testedClass.reflection, dependencyKey);
                }
             }
          }
@@ -321,33 +382,49 @@ final class InjectionState implements BeanExporter
    }
 
    @Nullable
-   private Object findMatchingObject(
+   private static Object findMatchingObject(
       @Nonnull Map<InjectionPoint, Object> availableObjects, @Nullable GenericTypeReflection reflection,
       @Nonnull InjectionPoint injectionPoint)
    {
+      if (availableObjects.isEmpty()) {
+         return null;
+      }
+
       Type dependencyType = injectionPoint.type;
+      Object found = null;
 
       for (Entry<InjectionPoint, Object> injectionPointAndObject : availableObjects.entrySet()) {
          InjectionPoint dependencyIP = injectionPointAndObject.getKey();
          Object dependencyObject = injectionPointAndObject.getValue();
 
-         if (
-            injectionPoint.equals(dependencyIP) ||
-            reflection != null && reflection.areMatchingTypes(dependencyType, dependencyIP.type)
-         ) {
+         if (injectionPoint.equals(dependencyIP)) {
             return dependencyObject;
+         }
+
+         if (reflection != null && reflection.areMatchingTypes(dependencyType, dependencyIP.type)) {
+            if (injectionPoint.hasSameName(dependencyIP)) {
+               return dependencyObject;
+            }
+
+            if (injectionPoint.qualified) {
+               return null;
+            }
+
+            if (found == null) {
+               found = dependencyObject;
+            }
          }
       }
 
-      return null;
+      return found;
    }
 
-   void saveInstantiatedDependency(@Nonnull InjectionPoint dependencyKey, @Nonnull Object dependency)
+   public void saveInstantiatedDependency(@Nonnull InjectionPoint dependencyKey, @Nonnull Object dependency)
    {
       instantiatedDependencies.put(dependencyKey, dependency);
    }
 
-   void saveGlobalDependency(@Nonnull InjectionPoint dependencyKey, @Nonnull Object dependency)
+   public static void saveGlobalDependency(@Nonnull InjectionPoint dependencyKey, @Nonnull Object dependency)
    {
       globalDependencies.put(dependencyKey, dependency);
    }
@@ -361,7 +438,7 @@ final class InjectionState implements BeanExporter
    @Override
    public Object getBean(@Nonnull String name)
    {
-      for (InjectionPointProvider injectable : injectables) {
+      for (InjectionProvider injectable : injectables) {
          if (name.equals(injectable.getName())) {
             return injectable.getValue(currentTestClassInstance);
          }
@@ -381,9 +458,9 @@ final class InjectionState implements BeanExporter
    }
 
    @Nullable
-   private Object findByName(@Nonnull Map<InjectionPoint, Object> injectionPointsAndObjects, @Nonnull String name)
+   private static Object findByName(@Nonnull Map<InjectionPoint, Object> dependencies, @Nonnull String name)
    {
-      for (Entry<InjectionPoint, Object> injectionPointAndObject : injectionPointsAndObjects.entrySet()) {
+      for (Entry<InjectionPoint, Object> injectionPointAndObject : dependencies.entrySet()) {
          InjectionPoint injectionPoint = injectionPointAndObject.getKey();
 
          if (name.equals(injectionPoint.name)) {
@@ -392,5 +469,54 @@ final class InjectionState implements BeanExporter
       }
 
       return null;
+   }
+
+   void addInterfaceResolutionMethod(@Nonnull ParameterizedType interfaceType, @Nonnull Method resolutionMethod)
+   {
+      interfaceResolutionMethods.put(interfaceType, resolutionMethod);
+   }
+
+   @Nullable
+   public Class<?> resolveInterface(@Nonnull Class<?> anInterface)
+   {
+      if (interfaceResolutionMethods.isEmpty()) {
+         return null;
+      }
+
+      Method resolutionMethod = null;
+
+      for (Entry<ParameterizedType, Method> typeAndMethod : interfaceResolutionMethods.entrySet()) {
+         ParameterizedType acceptedType = typeAndMethod.getKey();
+         Method method = typeAndMethod.getValue();
+         Type targetType = acceptedType.getActualTypeArguments()[0];
+
+         if (targetType == anInterface) {
+            resolutionMethod = method;
+            break;
+         }
+         else if (targetType instanceof WildcardType && satisfiesUpperBounds(anInterface, (WildcardType) targetType)) {
+            resolutionMethod = method;
+         }
+      }
+
+      if (resolutionMethod != null) {
+         Class<?> implementationClass = invoke(currentTestClassInstance, resolutionMethod, anInterface);
+         return implementationClass;
+      }
+
+      return null;
+   }
+
+   private static boolean satisfiesUpperBounds(@Nonnull Class<?> interfaceType, @Nonnull WildcardType targetType)
+   {
+      for (Type upperBound : targetType.getUpperBounds()) {
+         Class<?> classOfUpperBound = getClassType(upperBound);
+
+         if (!classOfUpperBound.isAssignableFrom(interfaceType)) {
+            return false;
+         }
+      }
+
+      return true;
    }
 }

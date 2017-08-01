@@ -8,20 +8,20 @@ import java.util.*;
 import javax.annotation.*;
 
 import mockit.external.asm.*;
-import mockit.internal.expectations.transformation.InvocationBlockModifier.*;
 import static mockit.external.asm.Opcodes.*;
 
-final class ArgumentCapturing
+public final class ArgumentCapturing
 {
+   private static final Map<Integer, String> varIndexToTypeDesc = new HashMap<Integer, String>();
+
    @Nonnull private final InvocationBlockModifier modifier;
    @Nullable private List<Capture> captures;
    private boolean parameterForCapture;
    @Nullable private String capturedTypeDesc;
-   private boolean capturesFound;
 
    ArgumentCapturing(@Nonnull InvocationBlockModifier modifier) { this.modifier = modifier; }
 
-   boolean registerMatcher(boolean withCaptureMethod, @Nonnull String methodDesc, int lastLoadedVarIndex)
+   boolean registerMatcher(boolean withCaptureMethod, @Nonnull String methodDesc, @Nonnegative int lastLoadedVarIndex)
    {
       if (withCaptureMethod && "(Ljava/lang/Object;)Ljava/util/List;".equals(methodDesc)) {
          return false;
@@ -30,7 +30,8 @@ final class ArgumentCapturing
       if (withCaptureMethod) {
          if (methodDesc.contains("List")) {
             if (lastLoadedVarIndex > 0) {
-               Capture capture = modifier.new Capture(lastLoadedVarIndex);
+               int parameterIndex = modifier.argumentMatching.getMatcherCount();
+               Capture capture = new Capture(modifier, lastLoadedVarIndex, parameterIndex);
                addCapture(capture);
             }
 
@@ -47,14 +48,14 @@ final class ArgumentCapturing
       return true;
    }
 
-   void registerTypeToCaptureIfApplicable(int opcode, @Nonnull String typeDesc)
+   void registerTypeToCaptureIfApplicable(@Nonnegative int opcode, @Nonnull String typeDesc)
    {
       if (opcode == CHECKCAST && parameterForCapture) {
          capturedTypeDesc = typeDesc;
       }
    }
 
-   void registerTypeToCaptureIntoListIfApplicable(int varIndex, @Nonnull String signature)
+   void registerTypeToCaptureIntoListIfApplicable(@Nonnegative int varIndex, @Nonnull String signature)
    {
       if (signature.startsWith("Ljava/util/List<")) {
          String typeDesc = signature.substring(16, signature.length() - 2);
@@ -65,14 +66,15 @@ final class ArgumentCapturing
          }
 
          Type type = Type.getType(typeDesc);
-         ActiveInvocations.varIndexToTypeDesc.put(varIndex, type.getInternalName());
+         varIndexToTypeDesc.put(varIndex, type.getInternalName());
       }
    }
 
-   void registerAssignmentToCaptureVariableIfApplicable(int opcode, int varIndex)
+   void registerAssignmentToCaptureVariableIfApplicable(@Nonnegative int opcode, @Nonnegative int varIndex)
    {
       if (opcode >= ISTORE && opcode <= ASTORE && parameterForCapture) {
-         Capture capture = modifier.new Capture(opcode, varIndex, capturedTypeDesc);
+         int parameterIndex = modifier.argumentMatching.getMatcherCount() - 1;
+         Capture capture = new Capture(modifier, opcode, varIndex, capturedTypeDesc, parameterIndex);
          addCapture(capture);
          parameterForCapture = false;
          capturedTypeDesc = null;
@@ -83,13 +85,12 @@ final class ArgumentCapturing
    {
       if (captures == null) {
          captures = new ArrayList<Capture>();
-         capturesFound = true;
       }
 
       captures.add(capture);
    }
 
-   void updateCaptureIfAny(int originalIndex, int newIndex)
+   void updateCaptureIfAny(@Nonnegative int originalIndex, @Nonnegative int newIndex)
    {
       if (captures != null) {
          for (int i = captures.size() - 1; i >= 0; i--) {
@@ -122,5 +123,9 @@ final class ArgumentCapturing
       }
    }
 
-   boolean hasCaptures() { return capturesFound; }
+   @Nullable
+   public static String extractArgumentType(@Nonnegative int varIndex)
+   {
+      return varIndexToTypeDesc.remove(varIndex);
+   }
 }

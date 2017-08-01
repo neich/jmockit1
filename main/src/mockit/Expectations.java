@@ -73,7 +73,7 @@ import mockit.internal.expectations.*;
  *
  * @see #Expectations()
  * @see #Expectations(Object...)
- * @see <a href="http://jmockit.org/tutorial/Mocking.html#expectation">Tutorial</a>
+ * @see <a href="http://jmockit.org/tutorial/Mocking.html#expectation" target="tutorial">Tutorial</a>
  */
 public abstract class Expectations extends Invocations
 {
@@ -133,7 +133,7 @@ public abstract class Expectations extends Invocations
     * matching constructor invocation.
     *
     * @see #returns(Object, Object, Object...)
-    * @see <a href="http://jmockit.org/tutorial/Mocking.html#results">Tutorial</a>
+    * @see <a href="http://jmockit.org/tutorial/Mocking.html#results" target="tutorial">Tutorial</a>
     */
    protected Object result;
 
@@ -170,40 +170,11 @@ public abstract class Expectations extends Invocations
     * primitive/wrapper type, or a {@linkplain java.lang.reflect.Proxy#isProxyClass(Class) proxy class} created for an
     * interface, or if given a value/instance of such a type
     * 
-    * @see <a href="http://jmockit.org/tutorial/Mocking.html#partial">Tutorial</a>
+    * @see <a href="http://jmockit.org/tutorial/Mocking.html#partial" target="tutorial">Tutorial</a>
     */
    protected Expectations(Object... classesOrObjectsToBePartiallyMocked)
    {
       execution = new RecordAndReplayExecution(this, classesOrObjectsToBePartiallyMocked);
-   }
-
-   /**
-    * Same as {@link #Expectations(Object...)}, but considering that the invocations inside the block will occur in a
-    * given number of iterations.
-    * <p/>
-    * The effect of specifying a number of iterations larger than 1 (one) is equivalent to multiplying by that number
-    * the lower and upper invocation count limits for each invocation inside the expectation block.
-    * <p/>
-    * It's also valid to have multiple expectation blocks for the same test, each with an arbitrary number of
-    * iterations.
-    *
-    * @param numberOfIterations the positive number of iterations for the whole set of expectations recorded inside the
-    * block; when not specified, 1 (one) iteration is assumed
-    * @param classesOrObjectsToBePartiallyMocked one or more classes or objects whose classes are to be partially mocked
-    *
-    * @see #Expectations()
-    * @deprecated Will be removed in a future release; existing tests should be simplified in order to not depend on
-    * iterated expectations, or eliminated altogether.
-    */
-   @Deprecated
-   protected Expectations(Integer numberOfIterations, Object... classesOrObjectsToBePartiallyMocked)
-   {
-      this(classesOrObjectsToBePartiallyMocked);
-      RecordPhase currentPhase = getCurrentPhase();
-
-      if (currentPhase != null) {
-         currentPhase.setNumberOfIterations(numberOfIterations);
-      }
    }
 
    @Nullable @Override
@@ -236,7 +207,7 @@ public abstract class Expectations extends Invocations
     * @param secondValue the second value to be returned at replay time
     * @param remainingValues any remaining values to be returned, in the same order
     *
-    * @see <a href="http://jmockit.org/tutorial/Mocking.html#results">Tutorial</a>
+    * @see <a href="http://jmockit.org/tutorial/Mocking.html#results" target="tutorial">Tutorial</a>
     */
    protected final void returns(Object firstValue, Object secondValue, Object... remainingValues)
    {

@@ -222,7 +222,8 @@ public final class CascadingWithGenericsTest
    public interface NonGenericInterface extends GenericSubInterface<Bar> {}
 
    @Test
-   public void cascadeFromGenericMethodDefinedTwoLevelsDeepInInheritanceHierarchy(@Mocked NonGenericInterface mock) {
+   public void cascadeFromGenericMethodDefinedTwoLevelsDeepInInheritanceHierarchy(@Mocked NonGenericInterface mock)
+   {
       Bar cascadedResult = mock.genericMethod();
 
       assertNotNull(cascadedResult);
@@ -253,7 +254,7 @@ public final class CascadingWithGenericsTest
    @Test
    public void cascadeFromMethodReturningInnerInstanceOfGenericClass(@Mocked final Client mock)
    {
-      final Outer.Inner innerInstance = new Outer().new Inner();
+      final Outer<?>.Inner innerInstance = new Outer().new Inner();
 
       new Expectations() {{
          mock.doSomething();
@@ -264,15 +265,26 @@ public final class CascadingWithGenericsTest
    }
 
    static class SubB<T> extends B<T> {}
-   static class ClassWithMethodReturningGenericClassInstance { SubB<C> doSomething() { return null; } }
+   static class ClassWithMethodReturningGenericClassInstance { SubB<C<?>> doSomething() { return null; } }
 
    @Test
    public void cascadeFromMethodReturningInstanceOfGenericSubclassThenFromGenericMethodOfGenericBaseClass(
       @Mocked ClassWithMethodReturningGenericClassInstance mock)
    {
-      SubB<C> cascade1 = mock.doSomething();
-      C cascade2 = cascade1.getValue();
+      SubB<C<?>> cascade1 = mock.doSomething();
+      C<?> cascade2 = cascade1.getValue();
 
       assertNotNull(cascade2);
+   }
+
+   public interface InterfaceWithGenericMethod<T> { @SuppressWarnings("unused") T genericMethod(); }
+   static class BaseClass { public Bar genericMethod() { return null; } }
+   static class SubClass extends BaseClass implements InterfaceWithGenericMethod<Bar> {}
+
+   @Test
+   public void cascadeFromGenericInterfaceMethodImplementedInBaseClassOfMockedSubClass(@Mocked SubClass mock)
+   {
+      Bar cascaded = mock.genericMethod();
+      assertNotNull(cascaded);
    }
 }

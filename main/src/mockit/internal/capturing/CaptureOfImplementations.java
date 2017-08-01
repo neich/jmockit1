@@ -4,7 +4,6 @@
  */
 package mockit.internal.capturing;
 
-import java.lang.reflect.*;
 import javax.annotation.*;
 
 import mockit.external.asm.*;
@@ -12,7 +11,6 @@ import mockit.internal.*;
 import mockit.internal.startup.*;
 import mockit.internal.state.*;
 import static mockit.external.asm.ClassReader.*;
-import static mockit.internal.util.Utilities.*;
 
 public abstract class CaptureOfImplementations<M>
 {
@@ -21,10 +19,6 @@ public abstract class CaptureOfImplementations<M>
    public final void makeSureAllSubtypesAreModified(
       @Nonnull Class<?> baseType, boolean registerCapturedClasses, @Nullable M typeMetadata)
    {
-      if (baseType == TypeVariable.class) {
-         throw new IllegalArgumentException("Capturing implementations of multiple base types is not supported");
-      }
-
       CapturedType captureMetadata = new CapturedType(baseType);
       redefineClassesAlreadyLoaded(captureMetadata, baseType, typeMetadata);
       createCaptureTransformer(captureMetadata, registerCapturedClasses, typeMetadata);
@@ -54,7 +48,7 @@ public abstract class CaptureOfImplementations<M>
             return;
          }
 
-         ensureThatClassIsInitialized(realClass);
+         TestRun.ensureThatClassIsInitialized(realClass);
 
          BaseClassModifier modifier = createModifier(realClass.getClassLoader(), classReader, baseType, typeMetadata);
          classReader.accept(modifier, SKIP_FRAMES);
@@ -68,7 +62,7 @@ public abstract class CaptureOfImplementations<M>
 
    @Nonnull
    protected abstract BaseClassModifier createModifier(
-      @Nullable ClassLoader cl, @Nonnull ClassReader cr, @Nonnull Class<?> baseType, M typeMetadata);
+      @Nullable ClassLoader cl, @Nonnull ClassReader cr, @Nonnull Class<?> baseType, @Nullable M typeMetadata);
 
    protected abstract void redefineClass(@Nonnull Class<?> realClass, @Nonnull byte[] modifiedClass);
 
