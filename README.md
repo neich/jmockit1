@@ -6,8 +6,8 @@ How to build the project:
     1. main/pom.xml            builds jmockit-1.n.jar, running JUnit and TestNG test suites
     2. coverageTests/pom.xml   runs JUnit tests for the coverage tool
     3. others in samples       dir various sample test suites
-    
-In this version of the library, if you select path coverage, you will get prime path coverage. The old path coverage is gone.
+
+This version adds [Prime Path Coverage](http://cs.gmu.edu/~offutt/softwaretest/) (PPC) to JMockit ```1.35```. In order to activate PPC you have to use the [system properties mechanism](http://jmockit.org/tutorial/CodeCoverage.html#configuration) of the original JMockit framework. Now you have the extra option ```primepath``` to activate PPC. Note that ```path``` and ```primepath``` exclude each other, so you can only use one at a given test run.
 
 
 In order to use this version of jmockit with maven, you have to add the following to your pom.xml:
@@ -33,6 +33,8 @@ In order to use this version of jmockit with maven, you have to add the followin
 		<dependency>
 			<groupId>org.jmockit</groupId>
 			<artifactId>jmockit</artifactId>
-			<version>1.30</version>
+			<version>1.35</version>
 		</dependency>
 ```
+
+If you have already used the original version of JMockit, it is possible that it is already cached in the system. You'll have to manually remove the ```1.35``` folder of the maven local repository. For example, in GNU/Linux systems, this folder would be ```~/.m2/repository/org/jmockit/jmockit/1.35/```.
