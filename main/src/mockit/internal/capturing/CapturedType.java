@@ -14,8 +14,15 @@ final class CapturedType
    private static final ProtectionDomain JMOCKIT_DOMAIN = CapturedType.class.getProtectionDomain();
 
    @Nonnull final Class<?> baseType;
+   @Nullable private final ProtectionDomain baseTypePD;
+   private final boolean baseTypePDWithCodeSource;
 
-   CapturedType(@Nonnull Class<?> baseType) { this.baseType = baseType; }
+   CapturedType(@Nonnull Class<?> baseType)
+   {
+      this.baseType = baseType;
+      baseTypePD = baseType.getProtectionDomain();
+      baseTypePDWithCodeSource = baseTypePD != null && baseTypePD.getCodeSource() != null;
+   }
 
    @SuppressWarnings("UnnecessaryFullyQualifiedName")
    boolean isToBeCaptured(@Nonnull Class<?> aClass)
@@ -39,13 +46,15 @@ final class CapturedType
    }
 
    @SuppressWarnings("OverlyComplexMethod")
-   static boolean isNotToBeCaptured(
-      @Nullable ClassLoader loader, @Nullable ProtectionDomain protectionDomain, @Nonnull String classNameOrDesc)
+   boolean isNotToBeCaptured(
+      @Nullable ClassLoader loader, @Nullable ProtectionDomain pd, @Nonnull String classNameOrDesc)
    {
       //noinspection SimplifiableIfStatement
       if (
-         loader == null && classNameOrDesc.startsWith("java") ||
-         protectionDomain == JMOCKIT_DOMAIN || isGeneratedClass(classNameOrDesc)
+         loader == null && (classNameOrDesc.startsWith("java") || classNameOrDesc.startsWith("jdk/")) ||
+         pd == JMOCKIT_DOMAIN || isGeneratedClass(classNameOrDesc) ||
+         pd != baseTypePD && pd != null && pd.getCodeSource() != null && pd.getCodeSource().getLocation() != null &&
+         baseTypePDWithCodeSource && pd.getCodeSource().getLocation().getPath().endsWith(".jar")
       ) {
          return true;
       }
@@ -54,7 +63,7 @@ final class CapturedType
          classNameOrDesc.endsWith("Test") ||
          classNameOrDesc.startsWith("junit") ||
          classNameOrDesc.startsWith("sun") && !hasSubPackage(classNameOrDesc, 4, "management") ||
-         classNameOrDesc.startsWith("org") && hasSubPackage(classNameOrDesc, 4, "junit testng hamcrest") ||
+         classNameOrDesc.startsWith("org") && hasSubPackage(classNameOrDesc, 4, "junit testng hamcrest gradle") ||
          classNameOrDesc.startsWith("com") && (
             hasSubPackage(classNameOrDesc, 4, "sun") && !hasSubPackage(classNameOrDesc, 8, "proxy org") ||
             hasSubPackage(classNameOrDesc, 4, "intellij")

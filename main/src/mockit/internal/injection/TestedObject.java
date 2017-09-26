@@ -73,8 +73,6 @@ abstract class TestedObject
          return;
       }
 
-      injectionState.setTestedTypeReflection(testedClass.reflection);
-
       if (testedObject == null && createAutomatically) {
          if (reusePreviouslyCreatedInstance(testClassInstance)) {
             return;
@@ -88,7 +86,7 @@ abstract class TestedObject
       }
 
       if (testedObject != null && testedObjectClass.getClassLoader() != null) {
-         performFieldInjection(testedObjectClass, testedObject);
+         performFieldInjection(testedObjectClass, testedObject, testedClass);
          executeInitializationMethodsIfAny(testedObjectClass, testedObject);
       }
    }
@@ -98,7 +96,7 @@ abstract class TestedObject
    @Nullable
    abstract Object getExistingTestedInstanceIfApplicable(@Nonnull Object testClassInstance);
 
-   private static boolean isNonInstantiableType(@Nonnull Class<?> targetClass, @Nullable Object currentValue)
+   static boolean isNonInstantiableType(@Nonnull Class<?> targetClass, @Nullable Object currentValue)
    {
       return
          targetClass.isPrimitive() && defaultValueForPrimitiveType(targetClass).equals(currentValue) ||
@@ -142,17 +140,17 @@ abstract class TestedObject
       injectionState.saveTestedObject(injectionPoint, testedObject);
    }
 
-   private void performFieldInjection(@Nonnull Class<?> targetClass, @Nonnull Object testedObject)
+   private void performFieldInjection(
+      @Nonnull Class<?> targetClass, @Nonnull Object testedObject, @Nonnull TestedClass testedClass)
    {
-      FieldInjection fieldInjection =
-         new FieldInjection(injectionState, testedClass, fullInjection, requireDIAnnotation);
+      FieldInjection fieldInjection = new FieldInjection(injectionState, fullInjection, requireDIAnnotation);
 
       if (targetFields == null) {
-         targetFields = fieldInjection.findAllTargetInstanceFieldsInTestedClassHierarchy(targetClass);
+         targetFields = fieldInjection.findAllTargetInstanceFieldsInTestedClassHierarchy(targetClass, testedClass);
          requireDIAnnotation = fieldInjection.isDIAnnotationRequired();
       }
 
-      fieldInjection.injectIntoEligibleFields(targetFields, testedObject);
+      fieldInjection.injectIntoEligibleFields(targetFields, testedObject, testedClass);
    }
 
    private void executeInitializationMethodsIfAny(@Nonnull Class<?> testedClass, @Nonnull Object testedObject)

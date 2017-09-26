@@ -4,7 +4,7 @@
    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
    <modelVersion>4.0.0</modelVersion>
 
-   <groupId>org.jmockit</groupId><artifactId>jmockit</artifactId><version>1.34</version>
+   <groupId>org.jmockit</groupId><artifactId>jmockit</artifactId><version>1.35</version>
    <packaging>jar</packaging>
 
    <name>Main</name>
@@ -156,7 +156,7 @@
                <nohelp>true</nohelp>
                <breakiterator>true</breakiterator>
                <use>false</use>
-               <source>1.7</source>
+               <source>1.8</source>
                <windowtitle>JMockit Toolkit API</windowtitle>
                <doctitle>JMockit Toolkit API Documentation</doctitle>
                <stylesheetfile>${project.basedir}/../../jmockit.github.io/api1x/stylesheet.css</stylesheetfile>
@@ -168,6 +168,10 @@
                <sourcepath>${basedir}/src</sourcepath>
                <subpackages>none</subpackages>
                <additionalparam>-Xdoclint:none mockit mockit.integration.junit4</additionalparam>
+               <links>
+                  <link>http://docs.oracle.com/javase/8/docs/api/</link>
+                  <link>http://docs.oracle.com/javaee/7/api/</link>
+               </links>
             </configuration>
             <executions>
                <execution>
@@ -304,7 +308,7 @@
          <optional>true</optional>
       </dependency>
       <dependency>
-         <groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter-engine</artifactId><version>5.0.0-M4</version>
+         <groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter-engine</artifactId><version>5.0.0-RC3</version>
          <optional>true</optional>
       </dependency>
       <dependency>
