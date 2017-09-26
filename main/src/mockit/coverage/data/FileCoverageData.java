@@ -8,6 +8,8 @@ import mockit.coverage.Metrics;
 import mockit.coverage.TestRun;
 import mockit.coverage.dataItems.PerFileDataCoverage;
 import mockit.coverage.lines.PerFileLineCoverage;
+import mockit.coverage.paths.MethodCoverageData;
+import mockit.coverage.paths.PerFilePathCoverage;
 import mockit.coverage.primepaths.PPMethodCoverageData;
 import mockit.coverage.primepaths.PerFilePPathCoverage;
 
@@ -26,11 +28,13 @@ public final class FileCoverageData implements Serializable
    private static final long serialVersionUID = 3508572808457541012L;
 
    @Nonnull private static final PerFileLineCoverage NO_LINE_INFO = new PerFileLineCoverage();
-   @Nonnull private static final PerFilePPathCoverage NO_PATH_INFO = new PerFilePPathCoverage();
+   @Nonnull private static final PerFilePathCoverage NO_PATH_INFO = new PerFilePathCoverage();
+   @Nonnull private static final PerFilePPathCoverage NO_PRIMEPATH_INFO = new PerFilePPathCoverage();
    @Nonnull private static final PerFileDataCoverage NO_DATA_INFO = new PerFileDataCoverage();
 
    @Nonnull public PerFileLineCoverage lineCoverageInfo;
-   @Nonnull public PerFilePPathCoverage pathCoverageInfo;
+   @Nonnull public PerFilePathCoverage pathCoverageInfo;
+   @Nonnull public PerFilePPathCoverage ppathCoverageInfo;
    @Nonnull public PerFileDataCoverage dataCoverageInfo;
 
    // Used for fast indexed access.
@@ -49,7 +53,8 @@ public final class FileCoverageData implements Serializable
       this.index = index;
       this.kindOfTopLevelType = kindOfTopLevelType;
       lineCoverageInfo = LineCoverage.active ? new PerFileLineCoverage() : NO_LINE_INFO;
-      pathCoverageInfo = PathCoverage.active ? new PerFilePPathCoverage() : NO_PATH_INFO;
+      pathCoverageInfo = PathCoverage.active ? new PerFilePathCoverage() : NO_PATH_INFO;
+      ppathCoverageInfo = PrimePathCoverage.active ? new PerFilePPathCoverage() : NO_PRIMEPATH_INFO;
       dataCoverageInfo = DataCoverage.active ? new PerFileDataCoverage() : NO_DATA_INFO;
       loadedAfterTestCompletion = TestRun.isTerminated();
    }
@@ -59,13 +64,39 @@ public final class FileCoverageData implements Serializable
    @Nonnull
    public PerFileLineCoverage getLineCoverageData() { return lineCoverageInfo; }
 
-   public void addMethod(@Nonnull PPMethodCoverageData methodData) { pathCoverageInfo.addMethod(methodData); }
+   public void addMethod(@Nonnull MethodCoverageData methodData) { pathCoverageInfo.addMethod(methodData); }
+
+   public void addMethod(@Nonnull PPMethodCoverageData methodData) { ppathCoverageInfo.addMethod(methodData); }
 
    @Nonnull
-   public Collection<PPMethodCoverageData> getMethods()
+   public Collection<MethodCoverageData> getMethods()
+   {
+      List<MethodCoverageData> methods =
+         new ArrayList<MethodCoverageData>(pathCoverageInfo.firstLineToMethodData.values());
+
+      Collections.sort(methods, new Comparator<MethodCoverageData>() {
+         @Override
+         public int compare(MethodCoverageData m1, MethodCoverageData m2)
+         {
+            int l1 = m1.getFirstLineInBody();
+            int l2 = m2.getFirstLineInBody();
+
+            if (l1 == l2) {
+               return 0;
+            }
+
+            return l1 < l2 ? -1 : 1;
+         }
+      });
+
+      return methods;
+   }
+
+   @Nonnull
+   public Collection<PPMethodCoverageData> getPPMethods()
    {
       List<PPMethodCoverageData> methods =
-         new ArrayList<PPMethodCoverageData>(pathCoverageInfo.firstLineToMethodData.values());
+          new ArrayList<PPMethodCoverageData>(ppathCoverageInfo.firstLineToMethodData.values());
 
       Collections.sort(methods, new Comparator<PPMethodCoverageData>() {
          @Override
@@ -85,12 +116,14 @@ public final class FileCoverageData implements Serializable
       return methods;
    }
 
+
    @Nonnull
    public PerFileCoverage getPerFileCoverage(@Nonnull Metrics metric)
    {
       switch (metric) {
          case LineCoverage: return lineCoverageInfo;
          case PathCoverage: return pathCoverageInfo;
+         case PrimePathCoverage: return ppathCoverageInfo;
          default: return dataCoverageInfo;
       }
    }
@@ -105,6 +138,10 @@ public final class FileCoverageData implements Serializable
 
       if (pathCoverageInfo != NO_PATH_INFO) {
          totalItems += pathCoverageInfo.getTotalItems();
+      }
+
+      if (ppathCoverageInfo != NO_PRIMEPATH_INFO) {
+         totalItems += ppathCoverageInfo.getTotalItems();
       }
 
       if (dataCoverageInfo != NO_DATA_INFO) {
@@ -128,6 +165,13 @@ public final class FileCoverageData implements Serializable
       }
       else if (previousInfo.pathCoverageInfo != NO_PATH_INFO) {
          pathCoverageInfo.mergeInformation(previousInfo.pathCoverageInfo);
+      }
+
+      if (ppathCoverageInfo == NO_PRIMEPATH_INFO) {
+         ppathCoverageInfo = previousInfo.ppathCoverageInfo;
+      }
+      else if (previousInfo.ppathCoverageInfo != NO_PRIMEPATH_INFO) {
+         ppathCoverageInfo.mergeInformation(previousInfo.ppathCoverageInfo);
       }
 
       if (dataCoverageInfo == NO_DATA_INFO) {

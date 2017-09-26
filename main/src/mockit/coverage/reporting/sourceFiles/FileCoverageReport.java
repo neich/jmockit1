@@ -4,19 +4,24 @@
  */
 package mockit.coverage.reporting.sourceFiles;
 
-import java.io.*;
-import java.util.*;
-import javax.annotation.*;
+import mockit.coverage.Metrics;
+import mockit.coverage.data.FileCoverageData;
+import mockit.coverage.dataItems.PerFileDataCoverage;
+import mockit.coverage.paths.MethodCoverageData;
+import mockit.coverage.primepaths.PPMethodCoverageData;
+import mockit.coverage.reporting.OutputFile;
+import mockit.coverage.reporting.dataCoverage.DataCoverageOutput;
+import mockit.coverage.reporting.lineCoverage.LineCoverageOutput;
+import mockit.coverage.reporting.parsing.FileParser;
+import mockit.coverage.reporting.parsing.LineElement;
+import mockit.coverage.reporting.parsing.LineParser;
+import mockit.coverage.reporting.pathCoverage.PathCoverageOutput;
+import mockit.coverage.reporting.ppathCoverage.PPathCoverageOutput;
 
-import mockit.coverage.*;
-import mockit.coverage.data.*;
-import mockit.coverage.dataItems.*;
-import mockit.coverage.primepaths.*;
-import mockit.coverage.reporting.*;
-import mockit.coverage.reporting.dataCoverage.*;
-import mockit.coverage.reporting.lineCoverage.*;
-import mockit.coverage.reporting.parsing.*;
-import mockit.coverage.reporting.ppathCoverage.*;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.io.IOException;
+import java.util.Collection;
 
 /**
  * Generates an HTML page containing line-by-line coverage information for a single source file.
@@ -28,7 +33,8 @@ public final class FileCoverageReport
    @Nonnull private final FileParser fileParser;
    @Nonnull private final NeutralOutput neutralOutput;
    @Nonnull private final LineCoverageOutput lineCoverage;
-   @Nullable private final PPathCoverageOutput pathCoverage;
+   @Nullable private final PathCoverageOutput pathCoverage;
+   @Nullable private final PPathCoverageOutput pPathCoverage;
    @Nullable private final DataCoverageOutput dataCoverage;
 
    public FileCoverageReport(
@@ -42,14 +48,26 @@ public final class FileCoverageReport
       neutralOutput = new NeutralOutput(output);
       lineCoverage = new LineCoverageOutput(output, fileData.getLineCoverageData(), withCallPoints);
       pathCoverage = createPathCoverageOutput(fileData);
+      pPathCoverage = createPrimePathCoverageOutput(fileData);
       dataCoverage = createDataCoverageOutput(fileData);
    }
 
    @Nullable
-   private PPathCoverageOutput createPathCoverageOutput(@Nonnull FileCoverageData fileData)
+   private PathCoverageOutput createPathCoverageOutput(@Nonnull FileCoverageData fileData)
    {
       if (Metrics.PathCoverage.active) {
-         Collection<PPMethodCoverageData> methods = fileData.getMethods();
+         Collection<MethodCoverageData> methods = fileData.getMethods();
+         return methods.isEmpty() ? null : new PathCoverageOutput(output, methods);
+      }
+
+      return null;
+   }
+
+   @Nullable
+   private PPathCoverageOutput createPrimePathCoverageOutput(@Nonnull FileCoverageData fileData)
+   {
+      if (Metrics.PrimePathCoverage.active) {
+         Collection<PPMethodCoverageData> methods = fileData.getPPMethods();
          return methods.isEmpty() ? null : new PPathCoverageOutput(output, methods);
       }
 
@@ -103,6 +121,11 @@ public final class FileCoverageReport
             if (pathCoverage != null) {
                pathCoverage.writePathCoverageInfoIfLineStartsANewMethodOrConstructor(lineParser.getNumber());
             }
+
+            if (pPathCoverage != null) {
+               pPathCoverage.writePathCoverageInfoIfLineStartsANewMethodOrConstructor(lineParser.getNumber());
+            }
+
          }
 
          if (!neutralOutput.writeLineWithoutCoverageInfo(lineParser)) {
