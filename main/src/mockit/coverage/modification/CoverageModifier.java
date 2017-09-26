@@ -9,18 +9,15 @@ import mockit.coverage.data.FileCoverageData;
 import mockit.coverage.lines.BranchCoverageData;
 import mockit.coverage.lines.LineCoverageData;
 import mockit.coverage.lines.PerFileLineCoverage;
-import mockit.coverage.primepaths.PPMethodCoverageData;
-import mockit.coverage.primepaths.PPNodeBuilder;
+import mockit.coverage.paths.MethodCoverageData;
+import mockit.coverage.paths.NodeBuilder;
 import mockit.external.asm.*;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Method;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static mockit.coverage.Metrics.DataCoverage;
 import static mockit.coverage.Metrics.PathCoverage;
@@ -73,8 +70,6 @@ final class CoverageModifier extends ClassVisitor
    private boolean forEnumClass;
    @Nullable private String kindOfTopLevelType;
    private int currentLine;
-
-   private static CClassLoader cClassLoader = new CClassLoader(CoverageModifier.class.getClassLoader());;
 
    CoverageModifier(@Nonnull ClassReader cr, boolean forReloadedClass)
    {
@@ -530,14 +525,14 @@ final class CoverageModifier extends ClassVisitor
 
    private class MethodOrConstructorModifier extends BaseMethodModifier
    {
-      @Nullable private PPNodeBuilder nodeBuilder;
+      @Nullable private NodeBuilder nodeBuilder;
       @Nullable private Label entryPoint;
       private int jumpCount;
 
       MethodOrConstructorModifier(@Nonnull MethodWriter mw)
       {
          super(mw);
-         nodeBuilder = new PPNodeBuilder();
+         nodeBuilder = new NodeBuilder();
       }
 
       @Override
@@ -579,7 +574,8 @@ final class CoverageModifier extends ClassVisitor
       public final void visitJumpInsn(int opcode, @Nonnull Label label)
       {
          if (
-            nodeBuilder == null || entryPoint == null || ignoreUntilNextSwitch > 0
+            nodeBuilder == null || entryPoint == null || ignoreUntilNextSwitch > 0 ||
+            visitedLabels.contains(label)
          ) {
             super.visitJumpInsn(opcode, label);
             return;
@@ -618,15 +614,6 @@ final class CoverageModifier extends ClassVisitor
       {
          if (nodeBuilder != null && ignoreUntilNextSwitch == 0) {
             int nodeIndex = nodeBuilder.handleRegularInstruction(currentLine, opcode);
-            generateCallToRegisterNodeReached(nodeIndex);
-         }
-      }
-
-      private void handleMethodCall(int opcode, Class<?>[] exceptions)
-      {
-         assert exceptions != null;
-         if (nodeBuilder != null && ignoreUntilNextSwitch == 0) {
-            int nodeIndex = nodeBuilder.handleMethodCall(currentLine, exceptions);
             generateCallToRegisterNodeReached(nodeIndex);
          }
       }
@@ -752,51 +739,7 @@ final class CoverageModifier extends ClassVisitor
          int opcode, @Nonnull String owner, @Nonnull String name, @Nonnull String desc, boolean itf)
       {
          super.visitMethodInsn(opcode, owner, name, desc, itf);
-
-         if (name.equals("<init>")) {
-            handleRegularInstruction(opcode);
-            return;
-         }
-
-         Pattern pattern = Pattern.compile("\\((L[^;]+;|[ZBCSIFDJV])*\\)");
-         List<String> parameters = new ArrayList<>();
-         Matcher matcher = pattern.matcher(desc);
-         while (matcher.find()) {
-            String group = matcher.group(1);
-            if (group != null) parameters.add(group);
-         }
-         try {
-            Class<?> clazz = Class.forName(owner.replace('/', '.'), false, cClassLoader);
-            List<Class<?>> cparams = new ArrayList<>();
-            for (String p : parameters) {
-               if (p.charAt(0) == 'L') {
-                  Class<?> pclazz = Class.forName(p.substring(1, p.length()-1).replace('/', '.'), false, cClassLoader);
-                  cparams.add(pclazz);
-               }
-            }
-            Method[] ms = clazz.getDeclaredMethods();
-            for (Method m : ms) {
-               if (!m.getName().equals(name)) continue;
-               Class<?>[] mParams = m.getParameterTypes();
-               if (mParams.length != cparams.size()) continue;
-               boolean sameParams = true;
-               for (int i = 0; i < cparams.size(); ++i) {
-                  if (!mParams[0].equals(cparams.get(i))) {
-                     sameParams = false;
-                     break;
-                  }
-               }
-               if (sameParams) {
-                  Class<?>[] exceptions = m.getExceptionTypes();
-                  handleMethodCall(opcode, exceptions);
-                  break;
-               }
-            }
-         } catch (Exception e) {
-            handleRegularInstruction(opcode);
-         }
-
-
+         handleRegularInstruction(opcode);
       }
 
       @Override
@@ -804,15 +747,7 @@ final class CoverageModifier extends ClassVisitor
          @Nonnull Label start, @Nonnull Label end, @Nonnull Label handler, @Nullable String type)
       {
          super.visitTryCatchBlock(start, end, handler, type);
-         handleTryCatch(start, end, handler, type);
-      }
-
-      private void handleTryCatch(Label start, Label end, Label handler, String type) {
-         if (nodeBuilder != null && ignoreUntilNextSwitch == 0) {
-            int nodeIndex = nodeBuilder.handleTryCatch(currentLine, start, end, handler, type);
-            generateCallToRegisterNodeReached(nodeIndex);
-         }
-
+         handleRegularInstruction(0);
       }
 
       @Override
@@ -852,7 +787,7 @@ final class CoverageModifier extends ClassVisitor
       public final void visitEnd()
       {
          if (currentLine > 0 && nodeBuilder != null && nodeBuilder.hasNodes() && fileData != null) {
-            PPMethodCoverageData methodData = new PPMethodCoverageData();
+            MethodCoverageData methodData = new MethodCoverageData();
             methodData.buildPaths(currentLine, nodeBuilder);
             fileData.addMethod(methodData);
          }
