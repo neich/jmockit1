@@ -4,11 +4,14 @@
  */
 package mockit.coverage;
 
-import javax.annotation.*;
+import mockit.coverage.data.CoverageData;
+import mockit.coverage.data.FileCoverageData;
+import mockit.coverage.lines.PerFileLineCoverage;
+import mockit.coverage.testRedundancy.TestCoverage;
 
-import mockit.coverage.data.*;
-import mockit.coverage.lines.*;
-import mockit.coverage.testRedundancy.*;
+import javax.annotation.Nonnull;
+
+import static mockit.coverage.Metrics.PathCoverage;
 
 @SuppressWarnings("unused")
 public final class TestRun
@@ -64,7 +67,7 @@ public final class TestRun
          CoverageData coverageData = CoverageData.instance();
          FileCoverageData fileData = coverageData.getFileData(file);
 
-         int previousExecutionCount = fileData.pathCoverageInfo.registerExecution(firstLineInMethodBody, node);
+         int previousExecutionCount = PathCoverage.active ? fileData.pathCoverageInfo.registerExecution(firstLineInMethodBody, node) : fileData.ppathCoverageInfo.registerExecution(firstLineInMethodBody, node);
          TestCoverage.INSTANCE.recordNewItemCoveredByTestIfApplicable(previousExecutionCount);
       }
    }
