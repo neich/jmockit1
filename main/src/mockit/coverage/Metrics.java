@@ -4,7 +4,9 @@
  */
 package mockit.coverage;
 
-import javax.annotation.*;
+import javax.annotation.Nonnull;
+import java.util.Arrays;
+import java.util.List;
 
 public enum Metrics
 {
@@ -17,12 +19,20 @@ public enum Metrics
       isActive("line")),
 
    PathCoverage(
-      "Path", "Paths",
-      "Measures how many of the possible execution paths through method/constructor bodies were actually " +
-      "executed by tests.\r\n" +
-      "The percentages are calculated as 100*NPE/NP, where NP is the number of possible paths and NPE the " +
-      "number of fully executed paths.",
-      isActive("path")),
+       "Path", "Paths",
+       "Measures how many of the possible execution paths through method/constructor bodies were actually " +
+           "executed by tests.\r\n" +
+           "The percentages are calculated as 100*NPE/NP, where NP is the number of possible paths and NPE the " +
+           "number of fully executed paths.",
+       isActive("path")),
+
+   PrimePathCoverage(
+       "PrimePath", "PrimePaths",
+       "Measures how many of the possible execution prime paths through method/constructor bodies were actually " +
+           "executed by tests.\r\n" +
+           "The percentages are calculated as 100*NPE/NP, where NP is the number of possible paths and NPE the " +
+           "number of fully executed paths.",
+       isActive("primepath")),
 
    DataCoverage(
       "Data", "Fields",
@@ -35,8 +45,14 @@ public enum Metrics
    private static boolean isActive(@Nonnull String name)
    {
       String metrics = Configuration.getProperty("metrics", "line");
-      boolean all = "all".equals(metrics);
-      return all || metrics.contains(name);
+      List<String> options = Arrays.asList(metrics.split(","));
+      if (name.equals("primepath")) {
+         return !options.contains("path");
+      }
+      else {
+         boolean all = "all".equals(metrics);
+         return all || options.contains(name);
+      }
    }
 
    @Nonnull private final String name;
