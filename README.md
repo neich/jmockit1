@@ -27,14 +27,14 @@ In order to use this version of jmockit with maven, you have to add the followin
 	</repositories>
 ```
 
-* and then the dependency:
+* and then the dependency (note the different version name ```1.35_pp```):
 
 ```xml
 		<dependency>
 			<groupId>org.jmockit</groupId>
 			<artifactId>jmockit</artifactId>
-			<version>1.35</version>
+			<version>1.35_pp</version>
 		</dependency>
 ```
 
-If you have already used the original version of JMockit, it is possible that it is already cached in the system. You'll have to manually remove the ```1.35``` folder of the maven local repository. For example, in GNU/Linux systems, this folder would be ```~/.m2/repository/org/jmockit/jmockit/1.35/```.
+A different version name is used to avoid a clash in the maven local folders and then making possible to use the two versions at the same time.
