@@ -47,11 +47,10 @@ public enum Metrics
       String metrics = Configuration.getProperty("metrics", "line");
       List<String> options = Arrays.asList(metrics.split(","));
       if (name.equals("primepath")) {
-         return !options.contains("path");
+         return options.contains("primepath") && !options.contains("all");
       }
       else {
-         boolean all = "all".equals(metrics);
-         return all || options.contains(name);
+         return options.contains("all") || options.contains(name);
       }
    }
 
