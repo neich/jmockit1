@@ -241,7 +241,6 @@
                <autoReleaseAfterClose>true</autoReleaseAfterClose>
             </configuration>
          </plugin>
--->
 <!--
          <plugin>
             &lt;!&ndash; Deploy the web site &ndash;&gt;
