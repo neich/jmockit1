@@ -19,7 +19,6 @@ import mockit.internal.reflection.*;
 import mockit.internal.state.*;
 import mockit.internal.util.*;
 import mockit.internal.reflection.EmptyProxy.Impl;
-import static mockit.external.asm.ClassReader.*;
 import static mockit.internal.util.GeneratedClasses.*;
 import static mockit.internal.util.Utilities.*;
 
@@ -38,7 +37,7 @@ class BaseTypeRedefinition
 
       void redefineClasses()
       {
-         RedefinitionEngine.redefineClasses(mockedClassDefinitions);
+         TestRun.mockFixture().redefineClasses(mockedClassDefinitions);
       }
    }
 
@@ -146,24 +145,24 @@ class BaseTypeRedefinition
    {
       ClassReader classReader = ClassFile.createReaderOrGetFromCache(realClass);
 
-      if (realClass.isInterface() && classReader.getVersion() < Opcodes.V1_8) {
+      if (realClass.isInterface() && classReader.getVersion() < ClassVersion.V1_8) {
          return;
       }
 
       ClassLoader loader = realClass.getClassLoader();
-      ExpectationsModifier modifier = createClassModifier(loader, classReader);
+      MockedClassModifier modifier = createClassModifier(loader, classReader);
       redefineClass(realClass, classReader, modifier);
    }
 
    @Nonnull
-   private ExpectationsModifier createClassModifier(@Nonnull ClassLoader loader, @Nonnull ClassReader classReader)
+   private MockedClassModifier createClassModifier(@Nullable ClassLoader loader, @Nonnull ClassReader classReader)
    {
-      ExpectationsModifier modifier = new ExpectationsModifier(loader, classReader, typeMetadata);
+      MockedClassModifier modifier = new MockedClassModifier(loader, classReader, typeMetadata);
       configureClassModifier(modifier);
       return modifier;
    }
 
-   void configureClassModifier(@Nonnull ExpectationsModifier modifier) {}
+   void configureClassModifier(@Nonnull MockedClassModifier modifier) {}
 
    private void generateNewMockImplementationClassForInterface(@Nonnull final Type interfaceToMock)
    {
@@ -198,13 +197,13 @@ class BaseTypeRedefinition
 
       ClassLoader loader = realClass.getClassLoader();
       ClassReader classReader = ClassFile.createReaderOrGetFromCache(realClass);
-      ExpectationsModifier modifier = createClassModifier(loader, classReader);
+      MockedClassModifier modifier = createClassModifier(loader, classReader);
 
       try {
          redefineClass(realClass, classReader, modifier);
       }
       catch (VisitInterruptedException ignore) {
-         // As defined in ExpectationsModifier, some critical JRE classes have all methods excluded from mocking by
+         // As defined in MockedClassModifier, some critical JRE classes have all methods excluded from mocking by
          // default. This exception occurs when they are visited.
          // In this case, we simply stop class redefinition for the rest of the class hierarchy.
          return false;
@@ -224,9 +223,9 @@ class BaseTypeRedefinition
    }
 
    private void redefineClass(
-      @Nonnull Class<?> realClass, @Nonnull ClassReader classReader, @Nonnull ExpectationsModifier modifier)
+      @Nonnull Class<?> realClass, @Nonnull ClassReader classReader, @Nonnull MockedClassModifier modifier)
    {
-      classReader.accept(modifier, SKIP_FRAMES);
+      classReader.accept(modifier);
 
       if (modifier.wasModified()) {
          byte[] modifiedClass = modifier.toByteArray();
@@ -237,7 +236,7 @@ class BaseTypeRedefinition
    void applyClassRedefinition(@Nonnull Class<?> realClass, @Nonnull byte[] modifiedClass)
    {
       ClassDefinition classDefinition = new ClassDefinition(realClass, modifiedClass);
-      RedefinitionEngine.redefineClasses(classDefinition);
+      TestRun.mockFixture().redefineClasses(classDefinition);
 
       if (mockedClassDefinitions != null) {
          mockedClassDefinitions.add(classDefinition);

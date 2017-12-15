@@ -8,6 +8,8 @@ import java.lang.annotation.*;
 import java.lang.reflect.*;
 import javax.annotation.*;
 
+import mockit.external.asm.*;
+
 public final class TestMethod
 {
    @Nonnull public final String testClassDesc;
@@ -19,8 +21,8 @@ public final class TestMethod
 
    public TestMethod(@Nonnull Method testMethod, @Nonnull Object[] parameterValues)
    {
-      testClassDesc = mockit.external.asm.Type.getInternalName(testMethod.getDeclaringClass());
-      testMethodDesc = testMethod.getName() + mockit.external.asm.Type.getMethodDescriptor(testMethod);
+      testClassDesc = JavaType.getInternalName(testMethod.getDeclaringClass());
+      testMethodDesc = testMethod.getName() + JavaType.getMethodDescriptor(testMethod);
       parameterTypes = testMethod.getGenericParameterTypes();
       parameterClasses = testMethod.getParameterTypes();
       parameterAnnotations = testMethod.getParameterAnnotations();
@@ -32,5 +34,11 @@ public final class TestMethod
    @Nonnull public Class<?> getParameterClass(@Nonnegative int index) { return parameterClasses[index]; }
    @Nonnull public Annotation[] getParameterAnnotations(@Nonnegative int index) { return parameterAnnotations[index]; }
    @Nullable public Object getParameterValue(@Nonnegative int index) { return parameterValues[index]; }
-   public void setParameterValue(@Nonnegative int index, @Nullable Object value) { parameterValues[index] = value; }
+
+   public void setParameterValue(@Nonnegative int index, @Nullable Object value)
+   {
+      if (value != null) {
+         parameterValues[index] = value;
+      }
+   }
 }

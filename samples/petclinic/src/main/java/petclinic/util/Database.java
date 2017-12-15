@@ -17,7 +17,7 @@ public class Database
    /**
     * Finds an entity in the application database given its class and unique id.
 
-    * @return the persistent entity if found, or {@code null} if not found
+    * @return the persistent entity if found, or <tt>null</tt> if not found
     */
    @Nullable
    public <E extends BaseEntity> E findById(@Nonnull Class<E> entityClass, int id)
@@ -48,7 +48,7 @@ public class Database
     * Finds one or more persistent entities of a certain type in the application database, up to a given maximum number
     * of entities.
     *
-    * @param maxResults the maximum number of resulting entities to be returned, or {@code 0} if there is no limit
+    * @param maxResults the maximum number of resulting entities to be returned, or <tt>0</tt> if there is no limit
     * @param qlStatement a JPQL "select" statement that locates entities of the same type
     * @param qlArgs zero or more argument values for the positional query parameters specified in the JPQL statement,
     *               in the same order as the parameter positions
@@ -75,21 +75,19 @@ public class Database
     * Saves the state of a given entity to the application database, whether it is new (still transient, with no id) or
     * already persisted (with an id).
     * <p/>
-    * In the case of an already persisted entity, the persistence context is synchronized to the application database,
-    * so that any pending "inserts", "updates" or "deletes" get executed at this time.
+    * In either case, the persistence context is synchronized to the application database, so that any pending
+    * "inserts", "updates" or "deletes" get executed at this time.
     */
    public void save(@Nonnull BaseEntity entity)
    {
       if (entity.isNew()) {
          em.persist(entity);
       }
-      else {
-         if (!em.contains(entity)) { // in case it is a detached entity
-            em.merge(entity);
-         }
-
-         em.flush();
+      else if (!em.contains(entity)) { // in case it is a detached entity
+         em.merge(entity);
       }
+
+      em.flush();
    }
 
    /**

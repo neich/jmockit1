@@ -4,10 +4,13 @@
  */
 package mockit.coverage.modification;
 
-import mockit.external.asm.ClassReader;
-import mockit.external.asm.ClassVisitor;
-import mockit.internal.startup.Startup;
+import java.lang.instrument.*;
+import java.security.*;
+import java.util.*;
+import javax.annotation.*;
 
+import mockit.external.asm.*;
+import mockit.internal.startup.*;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.lang.instrument.ClassDefinition;
@@ -148,7 +151,7 @@ public final class ClassModification
    private byte[] modifyClassForCoverage(@Nonnull ClassReader cr)
    {
       ClassVisitor modifier = PrimePathCoverage.active ? new PPCoverageModifier(cr, reprocessing) : new CoverageModifier(cr, reprocessing);
-      cr.accept(modifier, SKIP_FRAMES);
+      cr.accept(modifier);
       return modifier.toByteArray();
    }
 
@@ -216,7 +219,7 @@ public final class ClassModification
    @Nonnull
    private byte[] modifyClassForCoverage(@Nonnull String className, @Nonnull byte[] classBytecode)
    {
-      byte[] modifiedBytecode = PrimePathCoverage.active ? PPCoverageModifier.recoverModifiedByteCodeIfAvailable(className) : CoverageModifier.recoverModifiedByteCodeIfAvailable(className);
+      byte[] modifiedBytecode = CoverageModifier.recoverModifiedByteCodeIfAvailable(className);
 
       if (modifiedBytecode != null) {
          return modifiedBytecode;

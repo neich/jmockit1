@@ -12,12 +12,8 @@ import org.junit.*;
 import org.junit.rules.*;
 import static org.junit.Assert.*;
 
-import mockit.internal.util.*;
-import static mockit.Deencapsulation.*;
-
 import static org.hamcrest.CoreMatchers.*;
 
-@SuppressWarnings("unused")
 public final class DeencapsulationTest
 {
    @Rule public final ExpectedException thrown = ExpectedException.none();
@@ -27,11 +23,11 @@ public final class DeencapsulationTest
       final int INITIAL_VALUE = new Random().nextInt();
       final int initialValue = -1;
 
-      private static final Integer constantField = 123;
+      @SuppressWarnings("unused") private static final Integer constantField = 123;
 
       private static StringBuilder buffer;
-      private static char static1;
-      private static char static2;
+      @SuppressWarnings("unused") private static char static1;
+      @SuppressWarnings("unused") private static char static2;
 
       static StringBuilder getBuffer() { return buffer; }
       static void setBuffer(StringBuilder buffer) { Subclass.buffer = buffer; }
@@ -40,19 +36,6 @@ public final class DeencapsulationTest
       private int intField;
       private int intField2;
       private List<String> listField;
-
-      Subclass() { intField = -1; }
-      Subclass(int a, String b) { intField = a; stringField = b; }
-      Subclass(String... args) { listField = Arrays.asList(args); }
-      Subclass(List<String> list) { listField = list; }
-
-      private static Boolean anStaticMethod() { return true; }
-      private static void staticMethod(short s, String str, Boolean b) {}
-      private static String staticMethod(short s, StringBuilder str, boolean b) { return String.valueOf(str); }
-
-      private long aMethod() { return 567L; }
-      private void instanceMethod(short s, String str, Boolean b) {}
-      private String instanceMethod(short s, StringBuilder str, boolean b) { return String.valueOf(str); }
 
       int getIntField() { return intField; }
       void setIntField(int intField) { this.intField = intField; }
@@ -65,16 +48,8 @@ public final class DeencapsulationTest
 
       List<String> getListField() { return listField; }
       void setListField(List<String> listField) { this.listField = listField; }
-
-      private final class InnerClass
-      {
-         private InnerClass() {}
-         private InnerClass(boolean b, Long l, String s) {}
-         private InnerClass(List<String> list) {}
-      }
    }
 
-   static final Class<?> innerClass = ClassLoad.loadClass(Subclass.class.getName() + "$InnerClass");
    final Subclass anInstance = new Subclass();
 
    @Test
@@ -84,9 +59,9 @@ public final class DeencapsulationTest
       anInstance.setStringField("test");
       anInstance.setListField(Collections.<String>emptyList());
 
-      Integer intValue = getField(anInstance, "intField");
-      String stringValue = getField(anInstance, "stringField");
-      List<String> listValue = getField(anInstance, "listField");
+      Integer intValue = Deencapsulation.getField(anInstance, "intField");
+      String stringValue = Deencapsulation.getField(anInstance, "stringField");
+      List<String> listValue = Deencapsulation.getField(anInstance, "listField");
 
       assertEquals(anInstance.getIntField(), intValue.intValue());
       assertEquals(anInstance.getStringField(), stringValue);
@@ -99,7 +74,7 @@ public final class DeencapsulationTest
       thrown.expect(IllegalArgumentException.class);
       thrown.expectMessage("No instance field of name \"noField\" found");
 
-      getField(anInstance, "noField");
+      Deencapsulation.getField(anInstance, "noField");
    }
 
    @Test
@@ -109,9 +84,9 @@ public final class DeencapsulationTest
       anInstance.baseString = "test";
       anInstance.baseSet = Collections.emptySet();
 
-      Integer intValue = getField(anInstance, "baseInt");
-      String stringValue = getField(anInstance, "baseString");
-      Set<Boolean> listValue = getField(anInstance, "baseSet");
+      Integer intValue = Deencapsulation.getField(anInstance, "baseInt");
+      String stringValue = Deencapsulation.getField(anInstance, "baseString");
+      Set<Boolean> listValue = Deencapsulation.getField(anInstance, "baseSet");
 
       assertEquals(anInstance.baseInt, intValue.intValue());
       assertEquals(anInstance.baseString, stringValue);
@@ -124,9 +99,9 @@ public final class DeencapsulationTest
       anInstance.setStringField("by type");
       anInstance.setListField(new ArrayList<String>());
 
-      String stringValue = getField(anInstance, String.class);
-      List<String> listValue = getField(anInstance, List.class);
-      List<String> listValue2 = getField(anInstance, ArrayList.class);
+      String stringValue = Deencapsulation.getField(anInstance, String.class);
+      List<String> listValue = Deencapsulation.getField(anInstance, List.class);
+      List<String> listValue2 = Deencapsulation.getField(anInstance, ArrayList.class);
 
       assertEquals(anInstance.getStringField(), stringValue);
       assertSame(anInstance.getListField(), listValue);
@@ -139,7 +114,7 @@ public final class DeencapsulationTest
       thrown.expect(IllegalArgumentException.class);
       thrown.expectMessage("Instance field of type byte or Byte not found");
 
-      getField(anInstance, Byte.class);
+      Deencapsulation.getField(anInstance, Byte.class);
    }
 
    @Test
@@ -150,7 +125,7 @@ public final class DeencapsulationTest
       thrown.expectMessage("of type int ");
       thrown.expectMessage("INITIAL_VALUE, initialValue");
 
-      getField(anInstance, int.class);
+      Deencapsulation.getField(anInstance, int.class);
    }
 
    @Test @SuppressWarnings("unchecked")
@@ -159,8 +134,8 @@ public final class DeencapsulationTest
       Set<Boolean> fieldValueOnInstance = new HashSet<Boolean>();
       anInstance.baseSet = fieldValueOnInstance;
 
-      Set<Boolean> setValue = getField(anInstance, fieldValueOnInstance.getClass());
-      Set<Boolean> setValue2 = getField(anInstance, HashSet.class);
+      Set<Boolean> setValue = Deencapsulation.getField(anInstance, fieldValueOnInstance.getClass());
+      Set<Boolean> setValue2 = Deencapsulation.getField(anInstance, HashSet.class);
 
       assertSame(fieldValueOnInstance, setValue);
       assertSame(setValue, setValue2);
@@ -171,7 +146,7 @@ public final class DeencapsulationTest
    {
       anInstance.setLongField(15);
 
-      long longValue = getField(anInstance, long.class);
+      long longValue = Deencapsulation.getField(anInstance, long.class);
 
       assertEquals(15, longValue);
    }
@@ -181,7 +156,7 @@ public final class DeencapsulationTest
    {
       Subclass.setBuffer(new StringBuilder());
 
-      StringBuilder b = getField(Subclass.class, "buffer");
+      StringBuilder b = Deencapsulation.getField(Subclass.class, "buffer");
 
       assertSame(Subclass.getBuffer(), b);
    }
@@ -192,7 +167,7 @@ public final class DeencapsulationTest
       thrown.expect(IllegalArgumentException.class);
       thrown.expectMessage("No static field of name \"buffer\" found in class mockit.BaseClass");
 
-      getField(BaseClass.class, "buffer");
+      Deencapsulation.getField(BaseClass.class, "buffer");
    }
 
    @Test
@@ -200,7 +175,7 @@ public final class DeencapsulationTest
    {
       Subclass.setBuffer(new StringBuilder());
 
-      StringBuilder b = getField(Subclass.class, StringBuilder.class);
+      StringBuilder b = Deencapsulation.getField(Subclass.class, StringBuilder.class);
 
       assertSame(Subclass.getBuffer(), b);
    }
@@ -210,7 +185,7 @@ public final class DeencapsulationTest
    {
       anInstance.setIntField2(1);
 
-      setField(anInstance, "intField2", 901);
+      Deencapsulation.setField(anInstance, "intField2", 901);
 
       assertEquals(901, anInstance.getIntField2());
    }
@@ -221,7 +196,7 @@ public final class DeencapsulationTest
       thrown.expect(IllegalArgumentException.class);
       thrown.expectMessage("No instance field of name \"noField\" found");
 
-      setField(anInstance, "noField", 901);
+      Deencapsulation.setField(anInstance, "noField", 901);
    }
 
    @Test
@@ -229,7 +204,7 @@ public final class DeencapsulationTest
    {
       anInstance.setStringField("");
 
-      setField(anInstance, "Test");
+      Deencapsulation.setField(anInstance, "Test");
 
       assertEquals("Test", anInstance.getStringField());
    }
@@ -240,7 +215,7 @@ public final class DeencapsulationTest
       thrown.expect(IllegalArgumentException.class);
       thrown.expectMessage("Instance field of type byte or Byte not found");
 
-      setField(anInstance, (byte) 123);
+      Deencapsulation.setField(anInstance, (byte) 123);
    }
 
    @Test
@@ -249,7 +224,7 @@ public final class DeencapsulationTest
       thrown.expect(IllegalArgumentException.class);
       thrown.expectMessage("More than one instance field ");
 
-      setField(anInstance, 901);
+      Deencapsulation.setField(anInstance, 901);
    }
 
    @Test
@@ -257,7 +232,7 @@ public final class DeencapsulationTest
    {
       Subclass.setBuffer(null);
 
-      setField(Subclass.class, "buffer", new StringBuilder());
+      Deencapsulation.setField(Subclass.class, "buffer", new StringBuilder());
 
       assertNotNull(Subclass.getBuffer());
    }
@@ -268,7 +243,7 @@ public final class DeencapsulationTest
       thrown.expect(IllegalArgumentException.class);
       thrown.expectMessage("No static field of name \"noField\" found ");
 
-      setField(Subclass.class, "noField", null);
+      Deencapsulation.setField(Subclass.class, "noField", null);
    }
 
    @Test
@@ -276,7 +251,7 @@ public final class DeencapsulationTest
    {
       Subclass.setBuffer(null);
 
-      setField(Subclass.class, new StringBuilder());
+      Deencapsulation.setField(Subclass.class, new StringBuilder());
 
       assertNotNull(Subclass.getBuffer());
    }
@@ -287,7 +262,7 @@ public final class DeencapsulationTest
       thrown.expect(IllegalArgumentException.class);
       thrown.expectMessage("Missing field value");
 
-      setField(Subclass.class, null);
+      Deencapsulation.setField(Subclass.class, null);
    }
 
    @Test
@@ -296,7 +271,7 @@ public final class DeencapsulationTest
       thrown.expect(IllegalArgumentException.class);
       thrown.expectMessage("Static field of type StringBuffer not found");
 
-      setField(Subclass.class, new StringBuffer());
+      Deencapsulation.setField(Subclass.class, new StringBuffer());
    }
 
    @Test
@@ -305,7 +280,7 @@ public final class DeencapsulationTest
       thrown.expect(IllegalArgumentException.class);
       thrown.expectMessage("More than one static field ");
 
-      setField(Subclass.class, 'A');
+      Deencapsulation.setField(Subclass.class, 'A');
    }
 
    @Test
@@ -313,11 +288,11 @@ public final class DeencapsulationTest
    {
       Subclass obj = new Subclass();
 
-      setField(obj, "INITIAL_VALUE", 123);
-      setField(obj, "initialValue", 123);
+      Deencapsulation.setField(obj, "INITIAL_VALUE", 123);
+      Deencapsulation.setField(obj, "initialValue", 123);
 
       assertEquals(123, obj.INITIAL_VALUE);
-      assertEquals(123, getField(obj, "initialValue"));
+      assertEquals(123, Deencapsulation.getField(obj, "initialValue"));
       assertEquals(-1, obj.initialValue); // in this case, the compile-time constant gets embedded in client code
    }
 
@@ -326,447 +301,20 @@ public final class DeencapsulationTest
    {
       thrown.expectCause(isA(IllegalAccessException.class));
 
-      setField(Subclass.class, "constantField", 54);
-   }
-
-   @Test
-   public void invokeInstanceMethodWithoutParameters()
-   {
-      Long result = invoke(anInstance, "aMethod");
-
-      assertEquals(567L, result.longValue());
-   }
-
-   @Test
-   public void invokeInstanceMethodWithSpecifiedParameterTypes()
-   {
-      String result =
-         invoke(
-            anInstance, "instanceMethod",
-            new Class<?>[] {short.class, StringBuilder.class, boolean.class},
-            (short) 7, new StringBuilder("abc"), true);
-
-      assertEquals("abc", result);
-   }
-
-   @Test
-   public void invokeInstanceMethodWithMultipleParameters()
-   {
-      assertNull(invoke(anInstance, "instanceMethod", (short) 7, "abc", true));
-
-      String result = invoke(anInstance, "instanceMethod", (short) 7, new StringBuilder("abc"), true);
-      assertEquals("abc", result);
-   }
-
-   @Test
-   public void invokeInstanceMethodWithNullArgumentsSpecifiedThroughClassLiterals()
-   {
-      assertNull(invoke(anInstance, "instanceMethod", (short) 7, String.class, Boolean.class));
-
-      String result = invoke(anInstance, "instanceMethod", (short) 7, StringBuilder.class, true);
-      assertEquals("null", result);
-   }
-
-   @Test
-   public void attemptToInvokeNonExistentInstanceMethod()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("No compatible method found");
-      thrown.expectMessage("notAMethod()");
-
-      invoke(anInstance, "notAMethod");
-   }
-
-   @Test
-   public void attemptToInvokeNonExistentStaticMethod()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("No compatible static method found");
-      thrown.expectMessage("notAMethod()");
-
-      invoke(Subclass.class, "notAMethod");
-   }
-
-   @Test
-   public void attemptToInvokeNonExistentMethodByNameAndParameterTypes()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("Specified method not found");
-      thrown.expectMessage("notAMethod(int)");
-
-      invoke(anInstance, "notAMethod", new Class<?>[] {int.class}, 123);
-   }
-
-   @Test
-   public void attemptToInvokeInstanceMethodWithInvalidNullArgument()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("Invalid null ");
-      thrown.expectMessage(" argument 1");
-
-      invoke(anInstance, "instanceMethod", (short) 7, null, true);
-   }
-
-   @Test
-   public void attemptToInvokeMethodWithNameAndParameterTypesButInvalidNullArgument()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("Invalid null ");
-
-      Class<?>[] parameterTypes = {short.class, String.class, Boolean.class};
-      invoke(anInstance, "instanceMethod", parameterTypes, (Object[]) null);
-   }
-
-   @Test
-   public void attemptToInvokeInstanceMethodWithNullVarargs()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("Invalid null value passed as argument");
-
-      //noinspection NullArgumentToVariableArgMethod
-      invoke(anInstance, "instanceMethod", null);
-   }
-
-   @Test
-   public void invokeInstanceMethodWithSingleParameterOfBaseTypeWhilePassingSubtypeInstance()
-   {
-      invoke(anInstance, "setListField", new ArrayList<String>());
-   }
-
-   @Test
-   public void invokeStaticMethodWithoutParameters()
-   {
-      Boolean result = invoke(Subclass.class, "anStaticMethod");
-
-      assertTrue(result);
-   }
-
-   @Test
-   public void invokeStaticMethodByClassNameWithoutParameters()
-   {
-      Boolean result = invoke(Subclass.class.getName(), "anStaticMethod");
-
-      assertTrue(result);
-   }
-
-   @Test
-   public void invokeStaticMethodWithSpecifiedParameterTypes()
-   {
-      String result =
-         invoke(
-            Subclass.class, "staticMethod",
-            new Class<?>[] {short.class, StringBuilder.class, boolean.class},
-            (short) 7, new StringBuilder("abc"), true);
-
-      assertEquals("abc", result);
-   }
-
-   @Test
-   public void invokeStaticMethodWithMultipleParameters()
-   {
-      assertNull(invoke(Subclass.class, "staticMethod", (short) 7, "abc", true));
-
-      String result = invoke(Subclass.class, "staticMethod", (short) 7, new StringBuilder("abc"), true);
-      assertEquals("abc", result);
-   }
-
-   @Test
-   public void invokeStaticMethodByClassNameWithMultipleParameters()
-   {
-      Object result = invoke(Subclass.class.getName(), "staticMethod", (short) 7, "abc", true);
-
-      assertNull(result);
-   }
-
-   @Test
-   public void attemptToInvokeMethodByClassNameOnUnavailableClass()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("No class with name \"abc.xyz.NoClass\" found");
-
-      invoke("abc.xyz.NoClass", "aMethod");
-   }
-
-   @Test
-   public void invokeStaticMethodWithNullArgumentsSpecifiedThroughClassLiterals()
-   {
-      assertNull(invoke(anInstance, "staticMethod", (short) 7, String.class, Boolean.class));
-
-      String result = invoke(anInstance, "staticMethod", (short) 7, StringBuilder.class, true);
-      assertEquals("null", result);
-   }
-
-   @Test
-   public void attemptToInvokeStaticMethodWithInvalidNullArgument()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("Invalid null value ");
-      thrown.expectMessage(" argument 1");
-
-      invoke(anInstance, "staticMethod", (short) 7, null, true);
-   }
-
-   @Test
-   public void attemptToInvokeMethodWithNonMatchingArrayArguments()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("No compatible method found");
-      thrown.expectMessage("int[]");
-      thrown.expectMessage("String[]");
-      thrown.expectMessage("java.util.List[]");
-
-      invoke(anInstance, "aMethod", "test", 1, 2.0, new int[0], new String[0], new List<?>[0], new ArrayList<Long>());
-   }
-
-   @Test
-   public void attemptToInvokeInstanceMethodAsAnStaticMethod()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("Attempted to invoke non-static method without an instance");
-
-      invoke(anInstance.getClass(), "instanceMethod", (short) 7, "test", true);
-   }
-
-   @Test
-   public void attemptToInvokeInstanceMethodAsAnStaticMethodUsingClassName()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("Attempted to invoke non-static method without an instance");
-
-      invoke(anInstance.getClass().getName(), "instanceMethod", (short) 7, "test", true);
-   }
-
-   @Test
-   public void newInstanceUsingNoArgsConstructorFromSpecifiedParameterTypes()
-   {
-      Class<?>[] parameterTypes = {};
-      Subclass instance = newInstance(Subclass.class.getName(), (Object[]) parameterTypes);
-
-      assertNotNull(instance);
-      assertEquals(-1, instance.getIntField());
-   }
-
-   @Test
-   public void newInstanceUsingNoArgsConstructorWithoutSpecifyingParameters()
-   {
-      Subclass instance = newInstance(Subclass.class.getName());
-
-      assertNotNull(instance);
-      assertEquals(-1, instance.getIntField());
-   }
-
-   @Test
-   public void attemptToInvokeConstructorWithNullVarargs()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("Invalid null value passed as argument");
-
-      //noinspection NullArgumentToVariableArgMethod
-      newInstance(Subclass.class.getName(), null);
-   }
-
-   @Test
-   public void newInstanceByNameUsingMultipleArgsConstructorFromSpecifiedParameterTypes()
-   {
-      Subclass instance = newInstance(Subclass.class.getName(), new Class<?>[] {int.class, String.class}, 1, "XYZ");
-
-      assertNotNull(instance);
-      assertEquals(1, instance.getIntField());
-      assertEquals("XYZ", instance.getStringField());
-   }
-
-   @Test
-   public void newInstanceUsingMultipleArgsConstructorFromSpecifiedParameterTypes()
-   {
-      BaseClass instance = newInstance(Subclass.class, new Class<?>[] {int.class, String.class}, 1, "XYZ");
-
-      assertNotNull(instance);
-   }
-
-   @Test
-   public void attemptNewInstanceWithInvalidNullArgument()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("Invalid null value");
-
-      newInstance(Subclass.class, (Object[]) null);
-   }
-
-   @Test
-   public void attemptNewInstanceWithParameterTypesButInvalidNullArgument()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("Invalid null value");
-
-      newInstance(Subclass.class, new Class<?>[] {int.class, String.class}, (Object[]) null);
-   }
-
-   @Test
-   public void attemptNewInstanceWithNoMatchingConstructor()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("Specified constructor not found: Subclass(char)");
-
-      newInstance(Subclass.class.getName(), new Class<?>[] {char.class}, 'z');
-   }
-
-   @Test
-   public void newInstanceByNameUsingMultipleArgsConstructorFromNonNullArgumentValues()
-   {
-      Subclass instance = newInstance(Subclass.class.getName(), 590, "");
-
-      assertNotNull(instance);
-      assertEquals(590, instance.getIntField());
-      assertEquals("", instance.getStringField());
-   }
-
-   @Test
-   public void attemptNewInstanceForNonExistentConstructorByClassNameAndArgumentValues()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("No compatible constructor found");
-      thrown.expectMessage("Subclass(Integer)");
-
-      newInstance(Subclass.class.getName(), 123);
-   }
-
-   @Test
-   public void attemptNewInstanceByNameUsingMultipleArgsConstructorWithInvalidNullArgument()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("Invalid null value");
-      thrown.expectMessage(" argument 1");
-
-      newInstance(Subclass.class.getName(), 590, null);
-   }
-
-   @Test
-   public void newInstancePassingSubclassInstanceToConstructorWithSingleArgument()
-   {
-      List<String> aList = new ArrayList<String>();
-
-      Subclass instance = newInstance(Subclass.class, aList);
-
-      assertNotNull(instance);
-      assertSame(aList, instance.getListField());
-   }
-
-   @Test
-   public void newInstanceUsingMultipleArgsConstructorFromNonNullArgumentValues()
-   {
-      BaseClass instance = newInstance(Subclass.class, 590, "");
-
-      assertNotNull(instance);
-   }
-
-   @Test
-   public void newInnerInstanceUsingNoArgsConstructor()
-   {
-      Object innerInstance = newInnerInstance("InnerClass", anInstance);
-
-      assertTrue(innerClass.isInstance(innerInstance));
-   }
-
-   class InnerClass { InnerClass(int i) {} }
-
-   @Test
-   public void instantiateInnerClassWithOwnerInstance()
-   {
-      InnerClass ic = newInstance(InnerClass.class, this, 123);
-      assertNotNull(ic);
-   }
-
-   @Test
-   public void attemptToInstantiateInnerClassWithoutOwnerInstance()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("instantiation of inner class");
-
-      newInstance(InnerClass.class, 123);
-   }
-
-   @Test
-   public void attemptToInstantiateInnerInstanceWithWrongInnerClassName()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("No class with name ");
-      thrown.expectMessage("$NoClass\" found");
-
-      newInnerInstance("NoClass", anInstance);
-   }
-
-   @Test
-   public void attemptToInvokeConstructorForInnerClassWithNullVarargs()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("Invalid null value passed as argument");
-
-      //noinspection NullArgumentToVariableArgMethod
-      newInnerInstance("InnerClass", anInstance, null);
-   }
-
-   @Test
-   public void newInnerInstanceByNameUsingMultipleArgsConstructor()
-   {
-      Object innerInstance = newInnerInstance("InnerClass", anInstance, true, 5L, "");
-
-      assertTrue(innerClass.isInstance(innerInstance));
-   }
-
-   @Test
-   public void attemptToInstantiateInnerInstanceByNameUsingMultipleArgsConstructorWithInvalidNullArguments()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("Invalid null value");
-
-      newInnerInstance("InnerClass", anInstance, false, null, null);
-   }
-
-   @Test
-   public void newInnerInstanceUsingMultipleArgsConstructor()
-   {
-      Object innerInstance = newInnerInstance(innerClass, anInstance, true, 5L, "");
-
-      assertTrue(innerClass.isInstance(innerInstance));
-   }
-
-   @Test
-   public void newInnerInstancePassingSubclassInstanceToConstructorWithSingleArgument()
-   {
-      List<String> aList = new ArrayList<String>();
-
-      Object innerInstance = newInnerInstance(innerClass, anInstance, aList);
-
-      assertTrue(innerClass.isInstance(innerInstance));
-   }
-
-   @Test
-   public void attemptToInstantiateNestedClassAsIfItWasInnerClass()
-   {
-      thrown.expect(IllegalArgumentException.class);
-      thrown.expectMessage("Subclass is not an inner class");
-
-      newInnerInstance(Subclass.class, this);
-   }
-
-   @Test(expected = InstantiationException.class)
-   public void causeInstantiationExceptionToBeThrown() throws Exception
-   {
-      //noinspection ClassNewInstance
-      Runnable.class.newInstance();
+      Deencapsulation.setField(Subclass.class, "constantField", 54);
    }
 
    @Test
    public void newUninitializedInstanceOfConcreteClass()
    {
-      Subclass instance = newUninitializedInstance(Subclass.class);
+      Subclass instance = Deencapsulation.newUninitializedInstance(Subclass.class);
 
       assertEquals(0, instance.intField);
       assertEquals(0, instance.INITIAL_VALUE);
       assertEquals(-1, instance.initialValue);
 
       // This field value is a compile-time constant, so we need Reflection to read its current value:
-      int initialValue = getField(instance, "initialValue");
+      int initialValue = Deencapsulation.getField(instance, "initialValue");
       assertEquals(0, initialValue);
    }
 
@@ -775,7 +323,7 @@ public final class DeencapsulationTest
    @Test
    public void newUninitializedInstanceOfAbstractClass()
    {
-      AbstractClass instance = newUninitializedInstance(AbstractClass.class);
+      AbstractClass instance = Deencapsulation.newUninitializedInstance(AbstractClass.class);
 
       assertNotNull(instance);
       assertEquals(0, instance.doSomething());
@@ -785,10 +333,9 @@ public final class DeencapsulationTest
    @Test
    public void newUninitializedInstanceOfAbstractJREClass() throws Exception
    {
-      Writer instance = newUninitializedInstance(Writer.class);
+      Writer instance = Deencapsulation.newUninitializedInstance(Writer.class);
 
       assertNotNull(instance);
-      assertNull(getField(instance, "lock"));
 
       // Abstract methods.
       instance.write(new char[0], 0, 0);
@@ -806,7 +353,7 @@ public final class DeencapsulationTest
    @Test
    public void newUninitializedInstanceOfInterface() throws Exception
    {
-      Callable<?> callable = newUninitializedInstance(Callable.class);
+      Callable<?> callable = Deencapsulation.newUninitializedInstance(Callable.class);
 
       assertNotNull(callable);
       assertNull(callable.call());

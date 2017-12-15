@@ -31,7 +31,7 @@ public final class DynamicPartialMocking extends BaseTypeRedefinition
       }
 
       if (!modifiedClassfiles.isEmpty()) {
-         new RedefinitionEngine().redefineMethods(modifiedClassfiles);
+         TestRun.mockFixture().redefineMethods(modifiedClassfiles);
          modifiedClassfiles.clear();
       }
    }
@@ -85,7 +85,8 @@ public final class DynamicPartialMocking extends BaseTypeRedefinition
    {
       if (
          targetClass.isInterface() || targetClass.isAnnotation() ||
-         targetClass.isArray() || targetClass.isPrimitive() ||
+         targetClass.isArray() || targetClass.isPrimitive() || targetClass.isSynthetic() ||
+         MockingFilters.isSubclassOfUnmockable(targetClass) ||
          isWrapperOfPrimitiveType(targetClass) ||
          isGeneratedImplementationClass(targetClass)
       ) {
@@ -94,7 +95,7 @@ public final class DynamicPartialMocking extends BaseTypeRedefinition
    }
 
    @Override
-   void configureClassModifier(@Nonnull ExpectationsModifier modifier) { modifier.useDynamicMocking(methodsOnly); }
+   void configureClassModifier(@Nonnull MockedClassModifier modifier) { modifier.useDynamicMocking(methodsOnly); }
 
    @Override
    void applyClassRedefinition(@Nonnull Class<?> realClass, @Nonnull byte[] modifiedClass)

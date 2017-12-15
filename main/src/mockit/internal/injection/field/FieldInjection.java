@@ -23,22 +23,15 @@ public final class FieldInjection extends Injector
 {
    private static final Pattern TYPE_NAME = compile("class |interface |java\\.lang\\.");
 
-   private boolean requireDIAnnotation;
-   private Field targetField;
-
-   public FieldInjection(
-      @Nonnull InjectionState injectionState, @Nullable FullInjection fullInjection, boolean requireDIAnnotation)
+   public FieldInjection(@Nonnull InjectionState injectionState, @Nullable FullInjection fullInjection)
    {
       super(injectionState, fullInjection);
-      this.requireDIAnnotation = requireDIAnnotation;
    }
 
    @Nonnull
    public List<Field> findAllTargetInstanceFieldsInTestedClassHierarchy(
       @Nonnull Class<?> actualTestedClass, @Nonnull TestedClass testedClass)
    {
-      requireDIAnnotation = false;
-
       List<Field> targetFields = new ArrayList<Field>();
       Class<?> classWithFields = actualTestedClass;
 
@@ -71,7 +64,6 @@ public final class FieldInjection extends Injector
       }
 
       if (kindOfInjectionPoint(field) != KindOfInjectionPoint.NotAnnotated) {
-         requireDIAnnotation = true;
          return true;
       }
 
@@ -87,10 +79,8 @@ public final class FieldInjection extends Injector
       @Nonnull List<Field> targetFields, @Nonnull Object testedObject, @Nonnull TestedClass testedClass)
    {
       for (Field field : targetFields) {
-         targetField = field;
-
-         if (targetFieldWasNotAssignedByConstructor(testedObject)) {
-            Object injectableValue = getValueForFieldIfAvailable(targetFields, testedClass);
+         if (targetFieldWasNotAssignedByConstructor(testedObject, field)) {
+            Object injectableValue = getValueForFieldIfAvailable(targetFields, testedClass, field);
 
             if (injectableValue != null && injectableValue != NULL) {
                injectableValue = wrapInProviderIfNeeded(field.getGenericType(), injectableValue);
@@ -100,7 +90,7 @@ public final class FieldInjection extends Injector
       }
    }
 
-   private boolean targetFieldWasNotAssignedByConstructor(@Nonnull Object testedObject)
+   private boolean targetFieldWasNotAssignedByConstructor(@Nonnull Object testedObject, @Nonnull Field targetField)
    {
       if (kindOfInjectionPoint(targetField) != KindOfInjectionPoint.NotAnnotated) {
          return true;
@@ -124,10 +114,12 @@ public final class FieldInjection extends Injector
    }
 
    @Nullable
-   private Object getValueForFieldIfAvailable(@Nonnull List<Field> targetFields, @Nonnull TestedClass testedClass)
+   private Object getValueForFieldIfAvailable(
+      @Nonnull List<Field> targetFields, @Nonnull TestedClass testedClass, @Nonnull Field targetField)
    {
       @Nullable String qualifiedFieldName = getQualifiedName(targetField.getDeclaredAnnotations());
-      InjectionProvider injectable = findAvailableInjectableIfAny(targetFields, qualifiedFieldName, testedClass);
+      InjectionProvider injectable =
+         findAvailableInjectableIfAny(targetFields, qualifiedFieldName, testedClass, targetField);
 
       if (injectable != null) {
          return injectionState.getValueToInject(injectable);
@@ -144,14 +136,7 @@ public final class FieldInjection extends Injector
          return testedValue;
       }
 
-      KindOfInjectionPoint kindOfInjectionPoint = kindOfInjectionPoint(targetField);
-
       if (fullInjection != null) {
-         if (requireDIAnnotation && kindOfInjectionPoint == KindOfInjectionPoint.NotAnnotated) {
-            Object existingInstance = fullInjection.reuseInstance(nextTestedClass, fieldToInject, qualifiedFieldName);
-            return existingInstance;
-         }
-
          Object newInstance =
             fullInjection.createOrReuseInstance(nextTestedClass, this, fieldToInject, qualifiedFieldName);
 
@@ -160,17 +145,20 @@ public final class FieldInjection extends Injector
          }
       }
 
+      KindOfInjectionPoint kindOfInjectionPoint = kindOfInjectionPoint(targetField);
+
       if (kindOfInjectionPoint == KindOfInjectionPoint.WithValue) {
          return getValueFromAnnotation(targetField);
       }
 
-      throwExceptionIfUnableToInjectRequiredTargetField(kindOfInjectionPoint);
+      throwExceptionIfUnableToInjectRequiredTargetField(kindOfInjectionPoint, targetField);
       return null;
    }
 
    @Nullable
    private InjectionProvider findAvailableInjectableIfAny(
-      @Nonnull List<Field> targetFields, @Nullable String qualifiedTargetFieldName, @Nonnull TestedClass testedClass)
+      @Nonnull List<Field> targetFields, @Nullable String qualifiedTargetFieldName, @Nonnull TestedClass testedClass,
+      @Nonnull Field targetField)
    {
       injectionState.setTypeOfInjectionPoint(targetField.getGenericType());
 
@@ -181,13 +169,13 @@ public final class FieldInjection extends Injector
 
       String targetFieldName = targetField.getName();
 
-      return withMultipleTargetFieldsOfSameType(targetFields, testedClass) ?
+      return withMultipleTargetFieldsOfSameType(targetFields, testedClass, targetField) ?
          injectionState.findInjectableByTypeAndName(targetFieldName, testedClass) :
          injectionState.getProviderByTypeAndOptionallyName(targetFieldName, testedClass);
    }
 
    private boolean withMultipleTargetFieldsOfSameType(
-      @Nonnull List<Field> targetFields, @Nonnull TestedClass testedClass)
+      @Nonnull List<Field> targetFields, @Nonnull TestedClass testedClass, @Nonnull Field targetField)
    {
       for (Field anotherTargetField : targetFields) {
          if (
@@ -201,7 +189,8 @@ public final class FieldInjection extends Injector
       return false;
    }
 
-   private void throwExceptionIfUnableToInjectRequiredTargetField(@Nonnull KindOfInjectionPoint kindOfInjectionPoint)
+   private void throwExceptionIfUnableToInjectRequiredTargetField(
+      @Nonnull KindOfInjectionPoint kindOfInjectionPoint, @Nonnull Field targetField)
    {
       if (kindOfInjectionPoint == KindOfInjectionPoint.Required) {
          Type fieldType = targetField.getGenericType();
@@ -228,7 +217,6 @@ public final class FieldInjection extends Injector
    public void fillOutDependenciesRecursively(@Nonnull Object dependency, @Nonnull TestedClass testedClass)
    {
       Class<?> dependencyClass = dependency.getClass();
-      boolean previousRequireDIAnnotation = requireDIAnnotation;
       List<Field> targetFields = findAllTargetInstanceFieldsInTestedClassHierarchy(dependencyClass, testedClass);
 
       if (!targetFields.isEmpty()) {
@@ -236,9 +224,5 @@ public final class FieldInjection extends Injector
          injectIntoEligibleFields(targetFields, dependency, testedClass);
          injectionState.restoreConsumedInjectionProviders(currentlyConsumedInjectables);
       }
-
-      requireDIAnnotation = previousRequireDIAnnotation;
    }
-
-   public boolean isDIAnnotationRequired() { return requireDIAnnotation; }
 }

@@ -7,17 +7,15 @@ package mockit.internal.expectations.invocation;
 import java.util.*;
 import javax.annotation.*;
 
-import mockit.internal.*;
-
 public final class InvocationConstraints
 {
    public int minInvocations;
    private int maxInvocations;
    public int invocationCount;
 
-   public InvocationConstraints(boolean strictInvocation, boolean nonStrictInvocation)
+   public InvocationConstraints(boolean nonStrictInvocation)
    {
-      setLimits(nonStrictInvocation ? 0 : 1, strictInvocation ? 1 : -1);
+      setLimits(nonStrictInvocation ? 0 : 1, -1);
    }
 
    public void setLimits(int minInvocations, int maxInvocations)
@@ -37,18 +35,11 @@ public final class InvocationConstraints
 
    public void incrementInvocationCount() { invocationCount++; }
 
-   public boolean isInvocationCountAtMaximumAllowed() { return invocationCount == maxInvocations; }
-
    public boolean isInvocationCountLessThanMinimumExpected() { return invocationCount < minInvocations; }
 
    public boolean isInvocationCountMoreThanMaximumExpected()
    {
       return maxInvocations >= 0 && invocationCount > maxInvocations;
-   }
-
-   public boolean isInvocationCountInExpectedRange()
-   {
-      return minInvocations <= invocationCount && (invocationCount <= maxInvocations || maxInvocations < 0);
    }
 
    @Nullable

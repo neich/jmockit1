@@ -13,7 +13,7 @@ import mockit.*;
 import mockit.coverage.*;
 import mockit.coverage.testRedundancy.JUnitListener;
 import mockit.integration.internal.*;
-import mockit.internal.mockups.*;
+import mockit.internal.faking.*;
 import mockit.internal.state.TestRun;
 
 /**
@@ -38,11 +38,11 @@ public final class RunNotifierDecorator extends MockUp<RunNotifier>
 
    private static void prepareToProceed(@Nonnull Invocation invocation)
    {
-      ((MockInvocation) invocation).prepareToProceedFromNonRecursiveMock();
+      ((FakeInvocation) invocation).prepareToProceedFromNonRecursiveMock();
    }
 
    @Mock
-   public void fireTestStarted(Invocation invocation, Description description)
+   public static void fireTestStarted(Invocation invocation, Description description)
    {
       Class<?> currentTestClass = TestRun.getCurrentTestClass();
 

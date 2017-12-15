@@ -9,7 +9,6 @@ import javax.annotation.*;
 
 import mockit.external.asm.*;
 import mockit.internal.classGeneration.*;
-import static mockit.external.asm.Opcodes.*;
 import static mockit.internal.expectations.mocking.MockedTypeModifier.*;
 
 final class InterfaceImplementationGenerator extends BaseImplementationGenerator
@@ -38,7 +37,7 @@ final class InterfaceImplementationGenerator extends BaseImplementationGenerator
    protected void generateMethodBody(
       int access, @Nonnull String name, @Nonnull String desc, @Nullable String signature, @Nullable String[] exceptions)
    {
-      mw = cw.visitMethod(ACC_PUBLIC, name, desc, signature, exceptions);
+      mw = cw.visitMethod(Access.PUBLIC, name, desc, signature, exceptions);
 
       String className = null;
 
@@ -58,6 +57,6 @@ final class InterfaceImplementationGenerator extends BaseImplementationGenerator
 
       generateDirectCallToHandler(mw, className, access, name, desc, signature);
       generateReturnWithObjectAtTopOfTheStack(desc);
-      mw.visitMaxs(1, 0);
+      mw.visitMaxStack(1);
    }
 }

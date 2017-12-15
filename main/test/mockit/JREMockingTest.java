@@ -4,11 +4,9 @@
  */
 package mockit;
 
-import java.awt.*;
 import java.io.*;
 import java.lang.annotation.*;
 import java.lang.reflect.*;
-import java.security.*;
 import java.time.*;
 import java.util.*;
 import java.util.logging.*;
@@ -18,9 +16,7 @@ import org.junit.rules.*;
 import org.junit.runners.*;
 import static org.junit.Assert.*;
 
-@SuppressWarnings({
-   "WaitWhileNotSynced", "UnconditionalWait", "WaitWithoutCorrespondingNotify", "WaitNotInLoop",
-   "WaitOrAwaitWithoutTimeout", "deprecation"})
+@SuppressWarnings({"WaitNotInLoop", "deprecation"})
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public final class JREMockingTest
 {
@@ -101,13 +97,6 @@ public final class JREMockingTest
       Thread.sleep(delay);
       long t1 = System.currentTimeMillis();
       assertTrue(t1 - t0 >= delay);
-   }
-
-   @Test
-   public void mockPackagePrivateMethodsInJREClass(@Mocked AWTEvent awtEvent)
-   {
-      AccessControlContext ctx = Deencapsulation.invoke(awtEvent, "getAccessControlContext");
-      ctx.checkPermission(null);
    }
 
    // Mocking of java.lang.Thread and native methods //////////////////////////////////////////////////////////////////
@@ -295,16 +284,6 @@ public final class JREMockingTest
       new Verifications() {{ writer.append('x'); }};
    }
 
-   @Test @Ignore("Find a way to avoid NPE from superclass constructor")
-   public void mockConstructorsInFileWriterClass() throws Exception
-   {
-      new Expectations(FileWriter.class) {{
-         new FileWriter("no.file");
-      }};
-
-      new FileWriter("no.file"); // TODO: throws NPE
-   }
-
    // Mocking of java.lang.Object methods /////////////////////////////////////////////////////////////////////////////
 
    final Object lock = new Object();
@@ -422,7 +401,8 @@ public final class JREMockingTest
          fail("Allowed mocking of " + jreClass);
       }
       catch (IllegalArgumentException e) {
-         assertTrue(e.getMessage().endsWith(" is not mockable"));
+         String msg = e.getMessage();
+         assertTrue(msg.contains(jreClass.getName()) || msg.endsWith("is not mockable"));
       }
    }
 
@@ -444,6 +424,7 @@ public final class JREMockingTest
    public void mockLogManager(@Mocked LogManager mock)
    {
       LogManager logManager = LogManager.getLogManager();
+      //noinspection MisorderedAssertEqualsArguments
       assertSame(mock, logManager);
    }
 
@@ -451,6 +432,7 @@ public final class JREMockingTest
    public void mockLogger(@Mocked Logger mock)
    {
       assertNotNull(LogManager.getLogManager());
+      //noinspection MisorderedAssertEqualsArguments
       assertSame(mock, Logger.getLogger("test"));
    }
 }

@@ -9,22 +9,19 @@ import java.lang.instrument.*;
 import javax.annotation.*;
 
 import mockit.coverage.*;
-import mockit.coverage.standalone.*;
+import mockit.internal.*;
 import mockit.internal.expectations.transformation.*;
 import mockit.internal.state.*;
 import mockit.internal.util.*;
+import static mockit.internal.startup.ClassLoadingBridgeFields.createSyntheticFieldsInJREClassToHoldClassLoadingBridges;
 
 /**
  * This is the "agent class" that initializes the JMockit "Java agent". It is not intended for use in client code.
  * <p/>
- * There are several possible initialization scenarios:
+ * There are two possible initialization scenarios:
  * <ol>
- *    <li>Execution with {@code -javaagent:jmockit.jar} and without reloading in a custom class loader.</li>
- *    <li>Execution from system CL without {@code -javaagent} and without reloading in custom CL.</li>
- *    <li>Execution with {@code -javaagent} and with reloading in custom CL.</li>
- *    <li>Execution from system CL without {@code -javaagent} and with reloading in custom CL.</li>
- *    <li>Execution from custom CL without {@code -javaagent} and without reloading in another custom CL.</li>
- *    <li>Execution from custom CL without {@code -javaagent} and with reloading in another custom CL.</li>
+ *    <li>Execution with <tt>-javaagent:jmockit-1-x.jar</tt>.</li>
+ *    <li>Execution without <tt>-javaagent</tt>, by self-attaching with the Attach API.</li>
  * </ol>
  *
  * @see #premain(String, Instrumentation)
@@ -33,15 +30,16 @@ import mockit.internal.util.*;
 public final class Startup
 {
    public static boolean initializing;
+   @Nullable private static Instrumentation inst;
 
    private Startup() {}
 
    /**
     * This method must only be called by the JVM, to provide the instrumentation object.
-    * In order for this to occur, the JVM must be started with "-javaagent:jmockit.jar" as a command line parameter
+    * In order for this to occur, the JVM must be started with "-javaagent:jmockit-1.x.jar" as a command line parameter
     * (assuming the jar file is in the current directory).
     * <p/>
-    * It is also possible to load user-specified mock-ups at this time, by having set the "mockups" system property.
+    * It is also possible to load user-specified fakes at this time, by having set the "fakes" system property.
     *
     * @param agentArgs not used
     * @param inst      the instrumentation service provided by the JVM
@@ -49,20 +47,20 @@ public final class Startup
    public static void premain(@Nullable String agentArgs, @Nonnull Instrumentation inst)
    {
       if (!activateCodeCoverageIfRequested(agentArgs, inst)) {
-         String hostJREClassName = MockingBridgeFields.createSyntheticFieldsInJREClassToHoldMockingBridges(inst);
-         Instrumentation wrappedInst = InstrumentationHolder.set(inst, hostJREClassName);
-         initialize(wrappedInst);
+         createSyntheticFieldsInJREClassToHoldClassLoadingBridges(inst);
+         Startup.inst = inst;
+         initialize(inst);
       }
    }
 
    private static void initialize(@Nonnull Instrumentation inst)
    {
       inst.addTransformer(CachedClassfiles.INSTANCE, true);
-      applyStartupMocks(inst);
-      inst.addTransformer(new ExpectationsTransformer(inst));
+      applyStartupFakes(inst);
+      inst.addTransformer(new ExpectationsTransformer());
    }
 
-   private static void applyStartupMocks(@Nonnull Instrumentation inst)
+   private static void applyStartupFakes(@Nonnull Instrumentation inst)
    {
       initializing = true;
 
@@ -83,7 +81,6 @@ public final class Startup
     * @param agentArgs not used
     * @param inst      the instrumentation service provided by the JVM
     */
-   @SuppressWarnings({"unused", "WeakerAccess"})
    public static void agentmain(@Nullable String agentArgs, @Nonnull Instrumentation inst)
    {
       if (!inst.isRedefineClassesSupported()) {
@@ -91,27 +88,16 @@ public final class Startup
             "This JRE must be started in debug mode, or with -javaagent:<proper path>/jmockit.jar");
       }
 
-      String hostJREClassName = InstrumentationHolder.hostJREClassName;
-
-      if (hostJREClassName == null) {
-         hostJREClassName = MockingBridgeFields.createSyntheticFieldsInJREClassToHoldMockingBridges(inst);
-      }
-
-      InstrumentationHolder.set(inst, hostJREClassName);
+      createSyntheticFieldsInJREClassToHoldClassLoadingBridges(inst);
+      Startup.inst = inst;
       activateCodeCoverageIfRequested(agentArgs, inst);
    }
 
    private static boolean activateCodeCoverageIfRequested(@Nullable String agentArgs, @Nonnull Instrumentation inst)
    {
-      boolean standalone = "standalone".equals(agentArgs);
-
-      if (standalone || "coverage".equals(agentArgs)) {
+      if ("coverage".equals(agentArgs)) {
          try {
-            if (standalone) {
-               CoverageControl.create();
-            }
-
-            CodeCoverage coverage = CodeCoverage.create(standalone, true);
+            CodeCoverage coverage = CodeCoverage.create(true);
             inst.addTransformer(coverage);
 
             return true;
@@ -129,34 +115,23 @@ public final class Startup
       return false;
    }
 
-   @Nonnull
-   public static Instrumentation instrumentation()
-   {
-      verifyInitialization();
-      return InstrumentationHolder.get();
-   }
+   @Nonnull @SuppressWarnings("ConstantConditions")
+   public static Instrumentation instrumentation() { return inst; }
 
    public static void verifyInitialization()
    {
-      if (InstrumentationHolder.get() == null) {
-         new AgentLoader().loadAgent(null);
+      if (inst == null) {
+         throw new IllegalStateException(
+            "JMockit didn't get initialized; please check jmockit.jar precedes junit.jar in the classpath");
       }
    }
 
    public static boolean initializeIfPossible()
    {
-      InstrumentationHolder wrappedInst = InstrumentationHolder.get();
-
-      if (wrappedInst == null) {
+      if (inst == null) {
          try {
             new AgentLoader().loadAgent(null);
-            Instrumentation inst = InstrumentationHolder.get();
-
-            if (InstrumentationHolder.hostJREClassName == null) {
-               String hostJREClassName = MockingBridgeFields.createSyntheticFieldsInJREClassToHoldMockingBridges(inst);
-               InstrumentationHolder.setHostJREClassName(hostJREClassName);
-            }
-
+            createSyntheticFieldsInJREClassToHoldClassLoadingBridges(inst);
             initialize(inst);
             return true;
          }
@@ -169,16 +144,19 @@ public final class Startup
          return false;
       }
 
-      if (wrappedInst.wasRecreated()) {
-         initialize(wrappedInst);
-      }
-
       return true;
    }
 
+   @SuppressWarnings("ConstantConditions")
    public static void retransformClass(@Nonnull Class<?> aClass)
    {
-      try { instrumentation().retransformClasses(aClass); } catch (UnmodifiableClassException ignore) {}
+      try { inst.retransformClasses(aClass); } catch (UnmodifiableClassException ignore) {}
+   }
+
+   public static void redefineMethods(@Nonnull ClassIdentification classToRedefine, @Nonnull byte[] modifiedClassfile)
+   {
+      Class<?> loadedClass = classToRedefine.getLoadedClass();
+      redefineMethods(loadedClass, modifiedClassfile);
    }
 
    public static void redefineMethods(@Nonnull Class<?> classToRedefine, @Nonnull byte[] modifiedClassfile)
@@ -189,7 +167,8 @@ public final class Startup
    public static void redefineMethods(@Nonnull ClassDefinition... classDefs)
    {
       try {
-         instrumentation().redefineClasses(classDefs);
+         //noinspection ConstantConditions
+         inst.redefineClasses(classDefs);
       }
       catch (ClassNotFoundException e) {
          // should never happen
@@ -226,15 +205,12 @@ public final class Startup
    @Nullable
    public static Class<?> getClassIfLoaded(@Nonnull String classDescOrName)
    {
-      Instrumentation instrumentation = InstrumentationHolder.get();
+      String className = classDescOrName.replace('/', '.');
+      @SuppressWarnings("ConstantConditions") Class<?>[] loadedClasses = inst.getAllLoadedClasses();
 
-      if (instrumentation != null) {
-         String className = classDescOrName.replace('/', '.');
-
-         for (Class<?> aClass : instrumentation.getAllLoadedClasses()) {
-            if (aClass.getName().equals(className)) {
-               return aClass;
-            }
+      for (Class<?> aClass : loadedClasses) {
+         if (aClass.getName().equals(className)) {
+            return aClass;
          }
       }
 

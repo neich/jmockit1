@@ -5,7 +5,6 @@
 package mockit.internal.classGeneration;
 
 import java.lang.reflect.*;
-import java.lang.reflect.Type;
 import java.util.*;
 import javax.annotation.*;
 import static java.util.Arrays.*;
@@ -17,8 +16,8 @@ import static mockit.external.asm.Opcodes.*;
 
 public class BaseSubclassGenerator extends BaseClassModifier
 {
-   private static final int CLASS_ACCESS_MASK = 0xFFFF - ACC_ABSTRACT;
-   private static final int CONSTRUCTOR_ACCESS_MASK = ACC_PUBLIC + ACC_PROTECTED;
+   private static final int CLASS_ACCESS_MASK = 0xFFFF - Access.ABSTRACT;
+   private static final int CONSTRUCTOR_ACCESS_MASK = Access.PUBLIC + Access.PROTECTED;
 
    // Fixed initial state:
    @Nonnull Class<?> baseClass;
@@ -49,7 +48,7 @@ public class BaseSubclassGenerator extends BaseClassModifier
       int version, int access, @Nonnull String name, @Nullable String signature, @Nullable String superName,
       @Nullable String[] interfaces)
    {
-      int subclassAccess = access & CLASS_ACCESS_MASK | ACC_FINAL;
+      int subclassAccess = access & CLASS_ACCESS_MASK | Access.FINAL;
       String subclassSignature = mockedTypeInfo == null ? signature : mockedTypeInfo.implementationSignature;
 
       super.visit(version, subclassAccess, subclassName, subclassSignature, name, null);
@@ -70,10 +69,7 @@ public class BaseSubclassGenerator extends BaseClassModifier
    public final void visitOuterClass(@Nonnull String owner, @Nullable String name, @Nullable String desc) {}
 
    @Override
-   public final void visitAttribute(Attribute attr) {}
-
-   @Override
-   public final void visitSource(@Nullable String source, @Nullable String debug) {}
+   public final void visitSource(@Nullable String source) {}
 
    @Override @Nullable
    public final FieldVisitor visitField(
@@ -100,32 +96,18 @@ public class BaseSubclassGenerator extends BaseClassModifier
    private void generateConstructorDelegatingToSuper(
       @Nonnull String desc, @Nullable String signature, @Nullable String[] exceptions)
    {
-      mw = cw.visitMethod(ACC_PUBLIC, "<init>", desc, signature, exceptions);
+      mw = cw.visitMethod(Access.PUBLIC, "<init>", desc, signature, exceptions);
       mw.visitVarInsn(ALOAD, 0);
       int varIndex = 1;
 
-      for (mockit.external.asm.Type paramType : mockit.external.asm.Type.getArgumentTypes(desc)) {
-         int loadOpcode = getLoadOpcodeForParameterType(paramType.getSort());
+      for (JavaType paramType : JavaType.getArgumentTypes(desc)) {
+         int loadOpcode = paramType.getLoadOpcode();
          mw.visitVarInsn(loadOpcode, varIndex);
          varIndex++;
       }
 
       mw.visitMethodInsn(INVOKESPECIAL, superClassName, "<init>", desc, false);
       generateEmptyImplementation();
-   }
-
-   private static int getLoadOpcodeForParameterType(int paramType)
-   {
-      if (paramType <= mockit.external.asm.Type.INT) {
-         return ILOAD;
-      }
-
-      switch (paramType) {
-         case mockit.external.asm.Type.FLOAT:  return FLOAD;
-         case mockit.external.asm.Type.LONG:   return LLOAD;
-         case mockit.external.asm.Type.DOUBLE: return DLOAD;
-         default: return ALOAD;
-      }
    }
 
    private void generateImplementationIfAbstractMethod(
@@ -136,7 +118,7 @@ public class BaseSubclassGenerator extends BaseClassModifier
          String methodNameAndDesc = name + desc;
 
          if (!implementedMethods.contains(methodNameAndDesc)) {
-            if ((access & ACC_ABSTRACT) != 0) {
+            if ((access & Access.ABSTRACT) != 0) {
                generateMethodImplementation(className, access, name, desc, signature, exceptions);
             }
 

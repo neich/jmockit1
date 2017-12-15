@@ -76,42 +76,6 @@ public final class MockedClassWithSuperClassTest
       assertEquals(0, mock.doSomething());
    }
 
-   public static final class MockUpForSubclass extends MockUp<Subclass> {
-      @Mock public int doSomething() { return 1; }
-   }
-
-   @Test
-   public void mockOnlyInstancesOfTheClassSpecifiedToBeMocked()
-   {
-      BaseClass d = new Subclass();
-      assertEquals(123, d.doSomething());
-
-      new MockUpForSubclass();
-
-      assertEquals(1, d.doSomething());
-      assertEquals(123, new BaseClass().doSomething());
-      assertEquals(1, new Subclass().doSomething());
-      assertEquals(123, new BaseClass() {}.doSomething());
-      assertEquals(1, new Subclass() {}.doSomething());
-   }
-
-   @Test
-   public void mockOnlyInstancesOfTheClassSpecifiedToBeMocked_usingMockingBridge()
-   {
-      BaseClass d = new Subclass();
-      assertEquals(123, d.doSomething());
-
-      new MockUp<Subclass>() {
-         @Mock int doSomething() { return 2; }
-      };
-
-      assertEquals(123, new BaseClass().doSomething());
-      assertEquals(2, d.doSomething());
-      assertEquals(2, new Subclass().doSomething());
-      assertEquals(123, new BaseClass() {}.doSomething());
-      assertEquals(2, new Subclass() {}.doSomething());
-   }
-
    @Test
    public void recordExpectationOnStaticMethodFromBaseClass(@Mocked Subclass unused)
    {
@@ -137,14 +101,7 @@ public final class MockedClassWithSuperClassTest
    }
 
    @Test
-   public void mockSubclassWithConstructorContainingTryCatch_usingMockUp()
-   {
-      new MockUp<DerivedClass>() { @Mock void $init() {} };
-      new DerivedClass();
-   }
-
-   @Test
-   public void mockSubclassWithConstructorContainingTryCatch_usingExpectations(@Mocked DerivedClass mock)
+   public void mockSubclassWithConstructorContainingTryCatch(@Mocked DerivedClass mock)
    {
       new DerivedClass();
    }

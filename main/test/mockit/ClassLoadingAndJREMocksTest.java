@@ -20,7 +20,7 @@ public final class ClassLoadingAndJREMocksTest
    static class Foo {}
 
    @Test
-   public void mockUpFile()
+   public void fakeFile()
    {
       new MockUp<File>() {
          @Mock void $init(String name) {} // not necessary, except to verify non-occurrence of NPE
@@ -32,7 +32,7 @@ public final class ClassLoadingAndJREMocksTest
    }
 
    @Test
-   public void mockFileSafelyUsingReentrantMockMethod()
+   public void fakeFileSafelyUsingReentrantFakeMethod()
    {
       new MockUp<File>() {
          @Mock
@@ -55,10 +55,11 @@ public final class ClassLoadingAndJREMocksTest
    }
 
    @Test
-   public void mockFileSafelyUsingProceed()
+   public void fakeFileSafelyUsingProceed()
    {
       new MockUp<File>() {
-         @Mock boolean exists(Invocation inv)
+         @Mock
+         boolean exists(Invocation inv)
          {
             File it = inv.getInvokedInstance();
             return "testFile".equals(it.getName()) || inv.<Boolean>proceed();
@@ -279,14 +280,5 @@ public final class ClassLoadingAndJREMocksTest
    @Test(expected = IllegalArgumentException.class)
    public void attemptToMockJREClassThatIsNeverMockable(@Mocked Class<?> mockClass)
    {
-   }
-
-   @Test // StackOverflowError when run by itself, due to recursive class loading of initial classes
-   public void mockSystemNanoTime() {
-      new MockUp<System>() {
-         @Mock long nanoTime() { return 123; }
-      };
-
-      assertEquals(123, System.nanoTime());
    }
 }

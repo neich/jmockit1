@@ -11,7 +11,7 @@ import java.util.stream.*;
 import javax.annotation.*;
 import static java.util.Collections.*;
 
-import mockit.external.asm.Type;
+import mockit.external.asm.*;
 import static mockit.internal.util.Utilities.*;
 
 /**
@@ -77,7 +77,7 @@ public final class DefaultValues
       }
    }
 
-   @SuppressWarnings("Since15")
+   @SuppressWarnings({"Since15", "LambdaUnfriendlyMethodOverload"})
    private static void addJava8TypeMapEntries()
    {
       TYPE_DESC_TO_VALUE_MAP.put("Ljava/util/Optional;", Optional.empty());
@@ -170,7 +170,7 @@ public final class DefaultValues
    @Nonnull
    private static Object newEmptyArray(@Nonnull String typeDesc)
    {
-      Type type = Type.getType(typeDesc);
+      ArrayType type = ArrayType.create(typeDesc);
       Class<?> elementType = TypeDescriptor.getClassForType(type.getElementType());
 
       return Array.newInstance(elementType, new int[type.getDimensions()]);
@@ -182,7 +182,8 @@ public final class DefaultValues
       if (type.isArray()) {
          return Array.newInstance(type.getComponentType(), 0);
       }
-      else if (type != void.class && type.isPrimitive()) {
+
+      if (type != void.class && type.isPrimitive()) {
          return defaultValueForPrimitiveType(type);
       }
 
@@ -220,30 +221,76 @@ public final class DefaultValues
 
    @SuppressWarnings("unchecked")
    @Nullable
-   public static <T> T computeForWrapperType(@Nonnull java.lang.reflect.Type type)
+   public static <T> T computeForWrapperType(@Nonnull Type type)
    {
       if (type == Integer.class) {
          return (T) ZERO_INT;
       }
-      else if (type == Boolean.class) {
+
+      if (type == Boolean.class) {
          return (T) Boolean.FALSE;
       }
-      else if (type == Long.class) {
+
+      if (type == Long.class) {
          return (T) ZERO_LONG;
       }
-      else if (type == Double.class) {
+
+      if (type == Double.class) {
          return (T) ZERO_DOUBLE;
       }
-      else if (type == Float.class) {
+
+      if (type == Float.class) {
          return (T) ZERO_FLOAT;
       }
-      else if (type == Character.class) {
+
+      if (type == Character.class) {
          return (T) ZERO_CHAR;
       }
-      else if (type == Byte.class) {
+
+      if (type == Byte.class) {
          return (T) ZERO_BYTE;
       }
-      else if (type == Short.class) {
+
+      if (type == Short.class) {
+         return (T) ZERO_SHORT;
+      }
+
+      return null;
+   }
+
+   @SuppressWarnings("unchecked")
+   @Nullable
+   public static <T> T computeForWrapperType(@Nonnull String typeDesc)
+   {
+      if ("java/lang/Integer".equals(typeDesc)) {
+         return (T) ZERO_INT;
+      }
+
+      if ("java/lang/Boolean".equals(typeDesc)) {
+         return (T) Boolean.FALSE;
+      }
+
+      if ("java/lang/Long".equals(typeDesc)) {
+         return (T) ZERO_LONG;
+      }
+
+      if ("java/lang/Double".equals(typeDesc)) {
+         return (T) ZERO_DOUBLE;
+      }
+
+      if ("java/lang/Float".equals(typeDesc)) {
+         return (T) ZERO_FLOAT;
+      }
+
+      if ("java/lang/Character".equals(typeDesc)) {
+         return (T) ZERO_CHAR;
+      }
+
+      if ("java/lang/Byte".equals(typeDesc)) {
+         return (T) ZERO_BYTE;
+      }
+
+      if ("java/lang/Short".equals(typeDesc)) {
          return (T) ZERO_SHORT;
       }
 

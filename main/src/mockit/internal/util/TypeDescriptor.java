@@ -11,16 +11,13 @@ import mockit.external.asm.*;
 public final class TypeDescriptor
 {
    private static final Class<?>[] NO_PARAMETERS = new Class<?>[0];
-   private static final Class<?>[] PRIMITIVE_TYPES = {
-      void.class, boolean.class, char.class, byte.class, short.class, int.class, float.class, long.class, double.class
-   };
 
    private TypeDescriptor() {}
 
    @Nonnull
    public static Class<?>[] getParameterTypes(@Nonnull String methodDesc)
    {
-      Type[] paramTypes = Type.getArgumentTypes(methodDesc);
+      JavaType[] paramTypes = JavaType.getArgumentTypes(methodDesc);
 
       if (paramTypes.length == 0) {
          return NO_PARAMETERS;
@@ -39,7 +36,7 @@ public final class TypeDescriptor
    public static Class<?> getReturnType(@Nonnull String methodSignature)
    {
       String methodDesc = methodDescriptionWithoutTypeArguments(methodSignature);
-      Type returnType = Type.getReturnType(methodDesc);
+      JavaType returnType = JavaType.getReturnType(methodDesc);
       return getClassForType(returnType);
    }
 
@@ -66,17 +63,15 @@ public final class TypeDescriptor
    }
 
    @Nonnull
-   public static Class<?> getClassForType(@Nonnull Type type)
+   public static Class<?> getClassForType(@Nonnull JavaType type)
    {
-      int sort = type.getSort();
-
-      if (sort < PRIMITIVE_TYPES.length) {
-         return PRIMITIVE_TYPES[sort];
+      if (type instanceof PrimitiveType) {
+         return ((PrimitiveType) type).getType();
       }
 
       String className;
 
-      if (sort == Type.ARRAY) {
+      if (type instanceof ArrayType) {
          className = type.getDescriptor().replace('/', '.');
       }
       else {

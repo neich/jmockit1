@@ -9,13 +9,12 @@ import java.util.*;
 import javax.annotation.*;
 
 import mockit.external.asm.*;
-import mockit.internal.*;
 import mockit.internal.expectations.argumentMatching.*;
+import mockit.internal.expectations.state.*;
 import mockit.internal.reflection.*;
 import mockit.internal.state.*;
 import mockit.internal.util.*;
 import mockit.internal.reflection.GenericTypeReflection.*;
-import static mockit.external.asm.Type.getType;
 import static mockit.internal.util.TypeDescriptor.getClassForType;
 
 public final class ExpectedInvocation
@@ -196,8 +195,8 @@ public final class ExpectedInvocation
       @Nonnull String invokedMethod, @Nonnegative int returnTypeStartPos)
    {
       String recordedMethod = getMethodNameAndDescription();
-      Type recordedRT = getType(recordedMethod.substring(returnTypeStartPos));
-      Type invokedRT  = getType(invokedMethod.substring(returnTypeStartPos));
+      JavaType recordedRT = JavaType.getType(recordedMethod.substring(returnTypeStartPos));
+      JavaType invokedRT  = JavaType.getType(invokedMethod.substring(returnTypeStartPos));
 
       return getClassForType(invokedRT).isAssignableFrom(getClassForType(recordedRT));
    }

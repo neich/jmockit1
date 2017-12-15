@@ -44,7 +44,6 @@ public class TestDatabase
     */
    public final void refresh(BaseEntity entity)
    {
-      em.flush();
       em.refresh(entity);
    }
 
@@ -55,7 +54,7 @@ public class TestDatabase
     * @param qlArgs zero or more arguments for positional parameters in the JPQL statement
     * @param <E> specifies the desired entity type
     *
-    * @return the first entity found, if any, or {@code null} if none
+    * @return the first entity found, if any, or <tt>null</tt> if none
     */
    @SuppressWarnings("unchecked")
    public final <E extends BaseEntity> E findOne(String qlStatement, Object... qlArgs)
@@ -83,10 +82,8 @@ public class TestDatabase
 
       List<? extends BaseEntity> found = db.find(qlStatement, qlArgs);
 
-      for (BaseEntity entityFound : found) {
-         if (entityFound.getId().equals(newId)) {
-            return;
-         }
+      if (found.stream().filter(e -> e.getId().equals(newId)).count() > 0) {
+         return;
       }
 
       fail("New entity with id " + newId + " not found in database");

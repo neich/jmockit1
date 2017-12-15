@@ -7,8 +7,8 @@ package mockit.integration.internal;
 import java.lang.reflect.*;
 import javax.annotation.*;
 
-import mockit.internal.*;
 import mockit.internal.expectations.*;
+import mockit.internal.expectations.invocation.*;
 import mockit.internal.injection.*;
 import mockit.internal.expectations.mocking.*;
 import mockit.internal.state.*;
@@ -89,7 +89,7 @@ public class TestRunnerDecorator
    public static void cleanUpAllMocks()
    {
       cleanUpMocks(true);
-      TestRun.getMockClasses().discardStartupMocks();
+      TestRun.getFakeClasses().discardStartupFakes();
    }
 
    private static void cleanUpMocks(boolean forTestClassAsWell)
@@ -168,6 +168,22 @@ public class TestRunnerDecorator
       }
    }
 
+   protected static void createInstancesForTestedFieldsFromBaseClasses(@Nonnull Object testClassInstance)
+   {
+      TestedClassInstantiations testedClasses = TestRun.getTestedClassInstantiations();
+
+      if (testedClasses != null) {
+         TestRun.enterNoMockingZone();
+
+         try {
+            testedClasses.assignNewInstancesToTestedFieldsFromBaseClasses(testClassInstance);
+         }
+         finally {
+            TestRun.exitNoMockingZone();
+         }
+      }
+   }
+
    protected static void createInstancesForTestedFields(@Nonnull Object testClassInstance, boolean beforeSetup)
    {
       TestedClassInstantiations testedClasses = TestRun.getTestedClassInstantiations();
@@ -203,7 +219,7 @@ public class TestRunnerDecorator
       TestRun.enterNoMockingZone();
 
       try {
-         ParameterTypeRedefinitions redefinitions = new ParameterTypeRedefinitions(methodInfo);
+         ParameterTypeRedefinitions redefinitions = new ParameterTypeRedefinitions(methodInfo, parameterValues);
          TestRun.getExecutingTest().setParameterRedefinitions(redefinitions);
 
          TestedParameters testedParameters = new TestedParameters(methodInfo);
@@ -255,6 +271,15 @@ public class TestRunnerDecorator
 
       if (testedClasses != null) {
          testedClasses.clearTestedObjects();
+      }
+   }
+
+   protected static void clearTestedObjectsCreatedDuringSetup()
+   {
+      TestedClassInstantiations testedClasses = TestRun.getTestedClassInstantiations();
+
+      if (testedClasses != null) {
+         testedClasses.clearTestedObjectsCreatedDuringSetup();
       }
    }
 

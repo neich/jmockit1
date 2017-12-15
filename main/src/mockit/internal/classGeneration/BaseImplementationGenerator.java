@@ -17,7 +17,7 @@ import static mockit.external.asm.Opcodes.*;
 @SuppressWarnings("AbstractClassExtendsConcreteClass")
 public abstract class BaseImplementationGenerator extends BaseClassModifier
 {
-   private static final int CLASS_ACCESS = ACC_PUBLIC + ACC_FINAL;
+   private static final int CLASS_ACCESS = Access.PUBLIC + Access.FINAL;
 
    @Nonnull private final List<String> implementedMethods;
    @Nonnull private final String implementationClassDesc;
@@ -47,32 +47,32 @@ public abstract class BaseImplementationGenerator extends BaseClassModifier
 
    private void generateNoArgsConstructor()
    {
-      mw = cw.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+      mw = cw.visitMethod(Access.PUBLIC, "<init>", "()V", null, null);
       mw.visitVarInsn(ALOAD, 0);
       mw.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
       generateEmptyImplementation();
    }
 
    @Override
-   public final void visitInnerClass(String name, String outerName, String innerName, int access) {}
+   public final AnnotationVisitor visitAnnotation(@Nonnull String desc) { return null; }
 
    @Override
-   public final void visitOuterClass(String owner, @Nullable String name, @Nullable String desc) {}
+   public final void visitInnerClass(@Nonnull String name, String outerName, String innerName, int access) {}
 
    @Override
-   public final void visitAttribute(Attribute attr) {}
+   public final void visitOuterClass(@Nonnull String owner, @Nullable String name, @Nullable String desc) {}
 
    @Override
-   public final void visitSource(@Nullable String source, @Nullable String debug) {}
+   public final void visitSource(@Nullable String source) {}
 
    @Nullable @Override
    public final FieldVisitor visitField(
-      int access, String name, String desc, @Nullable String signature, @Nullable Object value)
+      int access, @Nonnull String name, @Nonnull String desc, @Nullable String signature, @Nullable Object value)
    { return null; }
 
    @Nullable @Override
    public final MethodVisitor visitMethod(
-      int access, String name, String desc, @Nullable String signature, @Nullable String[] exceptions)
+      int access, @Nonnull String name, @Nonnull String desc, @Nullable String signature, @Nullable String[] exceptions)
    {
       generateMethodImplementation(access, name, desc, signature, exceptions);
       return null;
@@ -154,7 +154,7 @@ public abstract class BaseImplementationGenerator extends BaseClassModifier
 
       @Override
       public void visit(
-         int version, int access, String name, @Nullable String signature, @Nullable String superName,
+         int version, int access, @Nonnull String name, @Nullable String signature, @Nullable String superName,
          @Nullable String[] interfaces)
       {
          methodOwner = name;
@@ -162,13 +162,9 @@ public abstract class BaseImplementationGenerator extends BaseClassModifier
       }
 
       @Nullable @Override
-      public FieldVisitor visitField(
-         int access, String name, String desc, @Nullable String signature, @Nullable Object value)
-      { return null; }
-
-      @Nullable @Override
       public MethodVisitor visitMethod(
-         int access, String name, String desc, @Nullable String signature, @Nullable String[] exceptions)
+         int access, @Nonnull String name, @Nonnull String desc, @Nullable String signature,
+         @Nullable String[] exceptions)
       {
          generateMethodImplementation(access, name, desc, signature, exceptions);
          return null;

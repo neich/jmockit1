@@ -4,6 +4,7 @@
  */
 package mockit.internal.expectations.mocking;
 
+import java.lang.instrument.*;
 import java.util.*;
 import javax.annotation.*;
 
@@ -13,7 +14,6 @@ import mockit.internal.capturing.*;
 import mockit.internal.startup.*;
 import mockit.internal.state.*;
 import mockit.internal.util.*;
-import static mockit.external.asm.ClassReader.*;
 import static mockit.internal.reflection.FieldReflection.*;
 
 public class CaptureOfNewInstances extends CaptureOfImplementations<MockedType>
@@ -88,20 +88,21 @@ public class CaptureOfNewInstances extends CaptureOfImplementations<MockedType>
    {
       ClassReader classReader = ClassFile.createReaderOrGetFromCache(mockedClass);
 
-      ExpectationsModifier modifier = newModifier(mockedClass.getClassLoader(), classReader, baseType, null);
+      MockedClassModifier modifier = newModifier(mockedClass.getClassLoader(), classReader, baseType, null);
       modifier.useDynamicMocking(true);
-      classReader.accept(modifier, SKIP_FRAMES);
+      classReader.accept(modifier);
       byte[] modifiedClassfile = modifier.toByteArray();
 
       Startup.redefineMethods(mockedClass, modifiedClassfile);
    }
 
    @Nonnull
-   private static ExpectationsModifier newModifier(
+   private static MockedClassModifier newModifier(
       @Nullable ClassLoader cl, @Nonnull ClassReader cr, @Nonnull Class<?> baseType, @Nullable MockedType typeMetadata)
    {
-      ExpectationsModifier modifier = new ExpectationsModifier(cl, cr, typeMetadata);
-      modifier.setClassNameForCapturedInstanceMethods(Type.getInternalName(baseType));
+      MockedClassModifier modifier = new MockedClassModifier(cl, cr, typeMetadata);
+      String baseTypeDesc = JavaType.getInternalName(baseType);
+      modifier.setClassNameForCapturedInstanceMethods(baseTypeDesc);
       return modifier;
    }
 
@@ -109,7 +110,7 @@ public class CaptureOfNewInstances extends CaptureOfImplementations<MockedType>
    protected final BaseClassModifier createModifier(
       @Nullable ClassLoader cl, @Nonnull ClassReader cr, @Nonnull Class<?> baseType, @Nullable MockedType typeMetadata)
    {
-      ExpectationsModifier modifier = newModifier(cl, cr, baseType, typeMetadata);
+      MockedClassModifier modifier = newModifier(cl, cr, baseType, typeMetadata);
 
       if (partiallyMockedBaseTypes.contains(baseType)) {
          modifier.useDynamicMocking(true);
@@ -119,9 +120,14 @@ public class CaptureOfNewInstances extends CaptureOfImplementations<MockedType>
    }
 
    @Override
-   protected final void redefineClass(@Nonnull Class<?> realClass, @Nonnull byte[] modifiedClass)
+   protected final void redefineClass(@Nonnull Class<?> realClass, @Nonnull byte[] modifiedClassfile)
    {
-      new RedefinitionEngine(realClass).redefineMethodsWhileRegisteringTheClass(modifiedClass);
+      ClassDefinition newClassDefinition = new ClassDefinition(realClass, modifiedClassfile);
+      Startup.redefineMethods(newClassDefinition);
+
+      MockFixture mockFixture = TestRun.mockFixture();
+      mockFixture.addRedefinedClass(newClassDefinition);
+      mockFixture.registerMockedClass(realClass);
    }
 
    final void registerCaptureOfNewInstances(@Nonnull MockedType typeMetadata, @Nullable Object mockInstance)

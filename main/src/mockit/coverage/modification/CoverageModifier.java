@@ -4,30 +4,21 @@
  */
 package mockit.coverage.modification;
 
-import mockit.coverage.data.CoverageData;
-import mockit.coverage.data.FileCoverageData;
-import mockit.coverage.lines.BranchCoverageData;
-import mockit.coverage.lines.LineCoverageData;
-import mockit.coverage.lines.PerFileLineCoverage;
-import mockit.coverage.paths.MethodCoverageData;
-import mockit.coverage.paths.NodeBuilder;
-import mockit.external.asm.*;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.*;
+import javax.annotation.*;
 
-import static mockit.coverage.Metrics.DataCoverage;
-import static mockit.coverage.Metrics.PathCoverage;
-import static mockit.external.asm.ClassReader.SKIP_FRAMES;
+import mockit.coverage.data.*;
+import mockit.coverage.lines.*;
+import mockit.coverage.paths.*;
+import mockit.external.asm.*;
+import static mockit.coverage.Metrics.*;
 import static mockit.external.asm.Opcodes.*;
 
-final class CoverageModifier extends ClassVisitor
+final class CoverageModifier extends WrappingClassVisitor
 {
    private static final Map<String, CoverageModifier> INNER_CLASS_MODIFIERS = new HashMap<String, CoverageModifier>();
-   private static final int FIELD_MODIFIERS_TO_IGNORE = ACC_FINAL + ACC_SYNTHETIC;
+   private static final int FIELD_MODIFIERS_TO_IGNORE = Access.FINAL + Access.SYNTHETIC;
    private static final int MAX_CONDITIONS = Integer.getInteger("jmockit-coverage-maxConditions", 10);
    private static final boolean WITH_PATH_OR_DATA_COVERAGE = PathCoverage.active || DataCoverage.active;
 
@@ -59,7 +50,6 @@ final class CoverageModifier extends ClassVisitor
       try { return new ClassReader(classFile); } catch (IOException ignore) { return null; }
    }
 
-   @Nonnull private final ClassWriter cw;
    @Nullable private String internalClassName;
    @Nullable private String simpleClassName;
    @Nonnull private String sourceFileName;
@@ -79,7 +69,6 @@ final class CoverageModifier extends ClassVisitor
    private CoverageModifier(@Nonnull ClassReader cr, boolean forInnerClass, @Nullable BitSet linesReprocessed)
    {
       super(new ClassWriter(cr));
-      cw = (ClassWriter) cv;
       sourceFileName = "";
       this.linesReprocessed = linesReprocessed;
       this.forInnerClass = forInnerClass;
@@ -99,7 +88,7 @@ final class CoverageModifier extends ClassVisitor
       int version, int access, @Nonnull String name, @Nullable String signature, String superName,
       @Nullable String[] interfaces)
    {
-      if ((access & ACC_SYNTHETIC) != 0) {
+      if ((access & Access.SYNTHETIC) != 0) {
          throw new VisitInterruptedException();
       }
 
@@ -109,7 +98,7 @@ final class CoverageModifier extends ClassVisitor
          kindOfTopLevelType = getKindOfJavaType(access, superName);
       }
 
-      forEnumClass = (access & ACC_ENUM) != 0;
+      forEnumClass = (access & Access.ENUM) != 0;
 
       if (!forInnerClass) {
          internalClassName = name;
@@ -124,9 +113,9 @@ final class CoverageModifier extends ClassVisitor
             sourceFileName = name.substring(0, p + 1);
          }
 
-         cannotModify = (access & ACC_ANNOTATION) != 0;
+         cannotModify = (access & Access.ANNOTATION) != 0;
 
-         if (!forEnumClass && (access & ACC_SUPER) != 0 && nestedType) {
+         if (!forEnumClass && (access & Access.SUPER) != 0 && nestedType) {
             INNER_CLASS_MODIFIERS.put(name.replace('/', '.'), this);
          }
       }
@@ -137,16 +126,16 @@ final class CoverageModifier extends ClassVisitor
    @Nonnull
    private static String getKindOfJavaType(int typeModifiers, @Nonnull String superName)
    {
-      if ((typeModifiers & ACC_ANNOTATION) != 0) return "annotation";
-      else if ((typeModifiers & ACC_INTERFACE) != 0) return "interface";
-      else if ((typeModifiers & ACC_ENUM) != 0) return "enum";
-      else if ((typeModifiers & ACC_ABSTRACT) != 0) return "abstractClass";
-      else if (superName.endsWith("Exception") || superName.endsWith("Error")) return "exception";
+      if ((typeModifiers & Access.ANNOTATION) != 0) return "annotation";
+      if ((typeModifiers & Access.INTERFACE) != 0) return "interface";
+      if ((typeModifiers & Access.ENUM) != 0) return "enum";
+      if ((typeModifiers & Access.ABSTRACT) != 0) return "abstractClass";
+      if (superName.endsWith("Exception") || superName.endsWith("Error")) return "exception";
       return "class";
    }
 
    @Override
-   public void visitSource(@Nullable String file, @Nullable String debug)
+   public void visitSource(@Nullable String file)
    {
       if (file == null || !file.endsWith(".java")) {
          throw VisitInterruptedException.INSTANCE;
@@ -161,7 +150,7 @@ final class CoverageModifier extends ClassVisitor
          fileData = CoverageData.instance().getOrAddFile(sourceFileName, kindOfTopLevelType);
       }
 
-      cw.visitSource(file, debug);
+      cw.visitSource(file);
    }
 
    @Override
@@ -188,14 +177,14 @@ final class CoverageModifier extends ClassVisitor
 
       if (innerCR != null) {
          CoverageModifier innerClassModifier = new CoverageModifier(innerCR, this, innerName);
-         innerCR.accept(innerClassModifier, SKIP_FRAMES);
+         innerCR.accept(innerClassModifier);
          INNER_CLASS_MODIFIERS.put(innerClassName, innerClassModifier);
       }
    }
 
    private static boolean isSyntheticOrEnumClass(int access)
    {
-      return (access & ACC_SYNTHETIC) != 0 || access == ACC_STATIC + ACC_ENUM;
+      return (access & Access.SYNTHETIC) != 0 || access == Access.STATIC + Access.ENUM;
    }
 
    private boolean isNestedInsideClassBeingModified(@Nonnull String internalName, @Nullable String outerName)
@@ -215,7 +204,7 @@ final class CoverageModifier extends ClassVisitor
          fileData != null && simpleClassName != null &&
          (access & FIELD_MODIFIERS_TO_IGNORE) == 0 && DataCoverage.active
       ) {
-         fileData.dataCoverageInfo.addField(simpleClassName, name, (access & ACC_STATIC) != 0);
+         fileData.dataCoverageInfo.addField(simpleClassName, name, (access & Access.STATIC) != 0);
       }
 
       return cw.visitField(access, name, desc, signature, value);
@@ -227,7 +216,7 @@ final class CoverageModifier extends ClassVisitor
    {
       MethodWriter mw = cw.visitMethod(access, name, desc, signature, exceptions);
 
-      if (fileData == null || (access & ACC_SYNTHETIC) != 0) {
+      if (fileData == null || (access & Access.SYNTHETIC) != 0) {
          return mw;
       }
 
@@ -244,11 +233,10 @@ final class CoverageModifier extends ClassVisitor
       return WITH_PATH_OR_DATA_COVERAGE ? new MethodModifier(mw) : new BaseMethodModifier(mw);
    }
 
-   private class BaseMethodModifier extends MethodVisitor
+   private class BaseMethodModifier extends WrappingMethodVisitor
    {
       static final String DATA_RECORDING_CLASS = "mockit/coverage/TestRun";
 
-      @Nonnull protected final MethodWriter mw;
       @Nonnull protected final List<Label> visitedLabels;
       @Nonnull private final List<Label> jumpTargetsForCurrentLine;
       @Nonnull private final List<Integer> pendingBranches;
@@ -263,7 +251,6 @@ final class CoverageModifier extends ClassVisitor
       BaseMethodModifier(@Nonnull MethodWriter mw)
       {
          super(mw);
-         this.mw = mw;
          visitedLabels = new ArrayList<Label>();
          jumpTargetsForCurrentLine = new ArrayList<Label>(4);
          pendingBranches = new ArrayList<Integer>(6);
@@ -331,7 +318,7 @@ final class CoverageModifier extends ClassVisitor
             return;
          }
 
-         Label jumpingFrom = mw.currentBlock;
+         Label jumpingFrom = mw.getCurrentBlock();
          assert jumpingFrom != null;
          jumpingFrom.info = currentLine;
 
@@ -509,14 +496,14 @@ final class CoverageModifier extends ClassVisitor
       }
 
       @Override
-      public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels)
+      public void visitTableSwitchInsn(int min, int max, @Nonnull Label dflt, @Nonnull Label... labels)
       {
          generateCallToRegisterBranchTargetExecutionIfPending();
          mw.visitTableSwitchInsn(min, max, dflt, labels);
       }
 
       @Override
-      public void visitMultiANewArrayInsn(String desc, int dims)
+      public void visitMultiANewArrayInsn(@Nonnull String desc, @Nonnegative int dims)
       {
          generateCallToRegisterBranchTargetExecutionIfPending();
          mw.visitMultiANewArrayInsn(desc, dims);
@@ -777,7 +764,7 @@ final class CoverageModifier extends ClassVisitor
       }
 
       @Override
-      public final void visitMultiANewArrayInsn(String desc, int dims)
+      public final void visitMultiANewArrayInsn(@Nonnull String desc, @Nonnegative int dims)
       {
          super.visitMultiANewArrayInsn(desc, dims);
          handleRegularInstruction(MULTIANEWARRAY);
@@ -799,7 +786,7 @@ final class CoverageModifier extends ClassVisitor
       MethodModifier(@Nonnull MethodWriter mw) { super(mw); }
 
       @Override
-      public AnnotationVisitor visitAnnotation(@Nonnull String desc, boolean visible)
+      public AnnotationVisitor visitAnnotation(@Nonnull String desc)
       {
          boolean isTestMethod = desc.startsWith("Lorg/junit/") || desc.startsWith("Lorg/testng/");
 
@@ -807,7 +794,7 @@ final class CoverageModifier extends ClassVisitor
             throw VisitInterruptedException.INSTANCE;
          }
 
-         return mw.visitAnnotation(desc, visible);
+         return mw.visitAnnotation(desc);
       }
    }
 

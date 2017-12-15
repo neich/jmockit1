@@ -11,106 +11,78 @@ import static mockit.external.asm.Opcodes.*;
 
 public final class TypeConversion
 {
-   private static final String[] PRIMITIVE_WRAPPER_TYPE = {
-      null, "java/lang/Boolean", "java/lang/Character", "java/lang/Byte", "java/lang/Short", "java/lang/Integer",
-      "java/lang/Float", "java/lang/Long", "java/lang/Double"
-   };
-   private static final String PRIMITIVE_WRAPPER_TYPES =
-      "java/lang/Boolean   java/lang/Character java/lang/Byte      java/lang/Short     " +
-      "java/lang/Integer   java/lang/Float     java/lang/Long      java/lang/Double";
-   private static final String[] UNBOXING_NAME = {
-      null, "booleanValue", "charValue", "byteValue", "shortValue", "intValue", "floatValue", "longValue", "doubleValue"
-   };
-   private static final String[] UNBOXING_DESC = {null, "()Z", "()C", "()B", "()S", "()I", "()F", "()J", "()D"};
-
    private TypeConversion() {}
 
-   public static void generateCastToObject(@Nonnull MethodVisitor mv, @Nonnull Type type)
+   public static void generateCastToObject(@Nonnull MethodVisitor mv, @Nonnull JavaType type)
    {
-      int sort = type.getSort();
+      if (type instanceof PrimitiveType) {
+         String wrapperTypeDesc = ((PrimitiveType) type).getWrapperTypeDesc();
+         String desc = '(' + type.getDescriptor() + ")L" + wrapperTypeDesc + ';';
 
-      if (sort < Type.ARRAY) {
-         String wrapperType = PRIMITIVE_WRAPPER_TYPE[sort];
-         String desc = '(' + type.getDescriptor() + ")L" + wrapperType + ';';
-         mv.visitMethodInsn(INVOKESTATIC, wrapperType, "valueOf", desc, false);
+         mv.visitMethodInsn(INVOKESTATIC, wrapperTypeDesc, "valueOf", desc, false);
       }
    }
 
-   public static void generateCastFromObject(@Nonnull MethodVisitor mv, @Nonnull Type toType)
+   public static void generateCastFromObject(@Nonnull MethodVisitor mv, @Nonnull JavaType toType)
    {
-      int sort = toType.getSort();
+      if (toType instanceof PrimitiveType) {
+         PrimitiveType primitiveType = (PrimitiveType) toType;
 
-      if (sort == Type.VOID) {
-         mv.visitInsn(POP);
+         if (primitiveType.getType() == void.class) {
+            mv.visitInsn(POP);
+         }
+         else {
+            generateTypeCheck(mv, primitiveType);
+            generateUnboxing(mv, primitiveType);
+         }
       }
       else {
          generateTypeCheck(mv, toType);
-
-         if (sort < Type.ARRAY) {
-            mv.visitMethodInsn(
-               INVOKEVIRTUAL, PRIMITIVE_WRAPPER_TYPE[sort], UNBOXING_NAME[sort], UNBOXING_DESC[sort], false);
-         }
       }
    }
 
-   private static void generateTypeCheck(@Nonnull MethodVisitor mv, @Nonnull Type toType)
+   private static void generateTypeCheck(@Nonnull MethodVisitor mv, @Nonnull JavaType toType)
    {
-      int sort = toType.getSort();
       String typeDesc;
 
-      switch (sort) {
-         case Type.ARRAY: typeDesc = toType.getDescriptor(); break;
-         case Type.OBJECT: typeDesc = toType.getInternalName(); break;
-         default: typeDesc = PRIMITIVE_WRAPPER_TYPE[sort];
+      if (toType instanceof ReferenceType) {
+         typeDesc = ((ReferenceType) toType).getInternalName();
+      }
+      else {
+         typeDesc = ((PrimitiveType) toType).getWrapperTypeDesc();
       }
 
       mv.visitTypeInsn(CHECKCAST, typeDesc);
    }
 
-   public static void generateCastOrUnboxing(@Nonnull MethodVisitor mv, @Nonnull Type parameterType, int opcode)
+   private static void generateUnboxing(@Nonnull MethodVisitor mv, @Nonnull PrimitiveType primitiveType)
+   {
+      String owner = primitiveType.getWrapperTypeDesc();
+      String methodName = primitiveType.getClassName() + "Value";
+      String methodDesc = "()" + primitiveType.getTypeCode();
+
+      mv.visitMethodInsn(INVOKEVIRTUAL, owner, methodName, methodDesc, false);
+   }
+
+   public static void generateCastOrUnboxing(@Nonnull MethodVisitor mv, @Nonnull JavaType parameterType, int opcode)
    {
       if (opcode == ASTORE) {
          generateTypeCheck(mv, parameterType);
          return;
       }
 
-      int sort = parameterType.getSort();
-      String typeDesc;
-
-      if (sort < Type.ARRAY) {
-         typeDesc = PRIMITIVE_WRAPPER_TYPE[sort];
-      }
-      else {
-         typeDesc = parameterType.getInternalName();
-         int i = PRIMITIVE_WRAPPER_TYPES.indexOf(typeDesc);
-
-         if (i >= 0) {
-            sort = i / 20 + 1;
-         }
-         else if (opcode == ISTORE && "java/lang/Number".equals(typeDesc)) {
-            sort = Type.INT;
-         }
-         else {
-            sort = Type.INT;
-
-            //noinspection SwitchStatementWithoutDefaultBranch
-            switch (opcode) {
-               case FSTORE: sort = Type.FLOAT; break;
-               case LSTORE: sort = Type.LONG; break;
-               case DSTORE: sort = Type.DOUBLE;
-            }
-
-            typeDesc = PRIMITIVE_WRAPPER_TYPE[sort];
-         }
-      }
-
+      String typeDesc = ((ReferenceType) parameterType).getInternalName();
       mv.visitTypeInsn(CHECKCAST, typeDesc);
-      mv.visitMethodInsn(INVOKEVIRTUAL, typeDesc, UNBOXING_NAME[sort], UNBOXING_DESC[sort], false);
+
+      PrimitiveType primitiveType = PrimitiveType.getCorrespondingPrimitiveTypeIfWrapperType(typeDesc);
+      assert primitiveType != null;
+
+      generateUnboxing(mv, primitiveType);
    }
 
    public static boolean isPrimitiveWrapper(@Nonnull String typeDesc)
    {
-      return PRIMITIVE_WRAPPER_TYPES.contains(typeDesc);
+      return PrimitiveType.getCorrespondingPrimitiveTypeIfWrapperType(typeDesc) != null;
    }
 
    public static boolean isBoxing(@Nonnull String owner, @Nonnull String name, @Nonnull String desc)

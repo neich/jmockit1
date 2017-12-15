@@ -9,7 +9,7 @@ import javax.annotation.*;
 import mockit.external.asm.*;
 
 /**
- * Generates a concrete subclass for an {@code abstract} base class.
+ * Generates a concrete subclass for an <tt>abstract</tt> base class.
  */
 public final class ConcreteSubclass<T> extends ImplementationClass<T>
 {
@@ -24,7 +24,7 @@ public final class ConcreteSubclass<T> extends ImplementationClass<T>
             String className, int access, @Nonnull String name, @Nonnull String desc,
             @Nullable String signature, @Nullable String[] exceptions)
          {
-            mw = cw.visitMethod(Opcodes.ACC_PUBLIC, name, desc, signature, exceptions);
+            mw = cw.visitMethod(Access.PUBLIC, name, desc, signature, exceptions);
             generateEmptyImplementation(desc);
          }
       };

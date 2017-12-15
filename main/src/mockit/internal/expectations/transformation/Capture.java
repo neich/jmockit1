@@ -53,9 +53,18 @@ final class Capture
    {
       if (opcode != ALOAD) {
          mw.visitIntInsn(SIPUSH, parameterIndex);
-         invocationBlockModifier.generateCallToActiveInvocationsMethod("matchedArgument", "(I)Ljava/lang/Object;");
 
-         Type argType = getArgumentType();
+         if (typeToCapture == null) {
+            mw.visitInsn(ACONST_NULL);
+         }
+         else {
+            mw.visitLdcInsn(typeToCapture);
+         }
+
+         invocationBlockModifier.generateCallToActiveInvocationsMethod(
+            "matchedArgument", "(ILjava/lang/String;)Ljava/lang/Object;");
+
+         JavaType argType = getArgumentType();
          generateCastOrUnboxing(mw, argType, opcode);
 
          mw.visitVarInsn(opcode, varIndex);
@@ -63,17 +72,17 @@ final class Capture
    }
 
    @Nonnull
-   private Type getArgumentType()
+   private JavaType getArgumentType()
    {
       if (typeToCapture == null) {
          return invocationBlockModifier.argumentMatching.getParameterType(parameterIndex);
       }
-      else if (typeToCapture.charAt(0) == '[') {
-         return Type.getType(typeToCapture);
+
+      if (typeToCapture.charAt(0) == '[') {
+         return ArrayType.create(typeToCapture);
       }
-      else {
-         return Type.getType('L' + typeToCapture + ';');
-      }
+
+      return ObjectType.create(typeToCapture);
    }
 
    boolean fixParameterIndex(@Nonnegative int originalIndex, @Nonnegative int newIndex)
@@ -104,11 +113,11 @@ final class Capture
 
    private boolean isTypeToCaptureSameAsParameterType(@Nonnull String typeDesc)
    {
-      Type parameterType = invocationBlockModifier.argumentMatching.getParameterType(parameterIndex);
-      int sort = parameterType.getSort();
+      JavaType parameterType = invocationBlockModifier.argumentMatching.getParameterType(parameterIndex);
 
-      if (sort == Type.OBJECT || sort == Type.ARRAY) {
-         return typeDesc.equals(parameterType.getInternalName());
+      if (parameterType instanceof ReferenceType) {
+         String parameterTypeDesc = ((ReferenceType) parameterType).getInternalName();
+         return typeDesc.equals(parameterTypeDesc);
       }
 
       return isPrimitiveWrapper(typeDesc);

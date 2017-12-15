@@ -11,6 +11,10 @@
    <build>
       <plugins>
          <plugin>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration><source>1.8</source><target>1.8</target></configuration>
+         </plugin>
+         <plugin>
             <artifactId>maven-surefire-plugin</artifactId>
             <configuration>
                <excludes><exclude>**/LoginServiceJUnitTest.class</exclude></excludes>
@@ -32,6 +36,10 @@
       </dependency>
       <dependency>
          <groupId>junit</groupId><artifactId>junit</artifactId>
+      </dependency>
+      <dependency>
+         <groupId>com.google.code.findbugs</groupId><artifactId>jsr305</artifactId><version>3.0.2</version>
+         <optional>true</optional>
       </dependency>
    </dependencies>
 </project>

@@ -9,8 +9,8 @@ import java.util.*;
 import javax.annotation.*;
 
 import mockit.external.asm.*;
-import mockit.internal.*;
 import mockit.internal.expectations.argumentMatching.*;
+import mockit.internal.expectations.state.*;
 import mockit.internal.reflection.*;
 import mockit.internal.state.*;
 import mockit.internal.util.*;
@@ -31,7 +31,7 @@ public final class InvocationArguments
       this.methodNameAndDesc = methodNameAndDesc;
       this.genericSignature = genericSignature;
       valuesAndMatchers =
-         (access & Opcodes.ACC_VARARGS) == 0 ?
+         (access & Access.VARARGS) == 0 ?
             new ArgumentValuesAndMatchersWithoutVarargs(this, args) :
             new ArgumentValuesAndMatchersWithVarargs(this, args);
    }

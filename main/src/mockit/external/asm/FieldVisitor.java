@@ -1,4 +1,4 @@
-/***
+/*
  * ASM: a very small and fast Java bytecode manipulation framework
  * Copyright (c) 2000-2011 INRIA, France Telecom
  * All rights reserved.
@@ -29,89 +29,33 @@
  */
 package mockit.external.asm;
 
+import javax.annotation.*;
+
 /**
- * A visitor to visit a Java field. The methods of this class must be called in
- * the following order: ( <tt>visitAnnotation</tt> |
- * <tt>visitTypeAnnotation</tt> | <tt>visitAttribute</tt> )* <tt>visitEnd</tt>.
- * 
- * @author Eric Bruneton
+ * A visitor to visit a Java field.
+ * The methods of this class must be called in the following order: (<tt>visitAnnotation</tt>)* <tt>visitEnd</tt>.
  */
-public abstract class FieldVisitor {
+public class FieldVisitor extends BaseWriter
+{
+   /**
+    * Constructs a new Field Visitor.
+    */
+   protected FieldVisitor() {}
 
-    /**
-     * The field visitor to which this visitor must delegate method calls. May
-     * be null.
-     */
-    protected FieldVisitor fv;
+   /**
+    * Visits an annotation of the field.
+    *
+    * @param desc    the class descriptor of the annotation class.
+    * @return a visitor to visit the annotation values, or <tt>null</tt> if this visitor is not interested in visiting
+    * this annotation.
+    */
+   @Nullable
+   public AnnotationVisitor visitAnnotation(@Nonnull String desc) { return null; }
 
-    /**
-     * Constructs a new {@link FieldVisitor}.
-     */
-    protected FieldVisitor() {
-    }
-
-    /**
-     * Visits an annotation of the field.
-     * 
-     * @param desc
-     *            the class descriptor of the annotation class.
-     * @param visible
-     *            <tt>true</tt> if the annotation is visible at runtime.
-     * @return a visitor to visit the annotation values, or <tt>null</tt> if
-     *         this visitor is not interested in visiting this annotation.
-     */
-    public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
-        if (fv != null) {
-            return fv.visitAnnotation(desc, visible);
-        }
-        return null;
-    }
-
-    /**
-     * Visits an annotation on the type of the field.
-     * 
-     * @param typeRef
-     *            a reference to the annotated type. The sort of this type
-     *            reference must be FIELD.
-     *
-     * @param typePath
-     *            the path to the annotated type argument, wildcard bound, array
-     *            element type, or static inner type within 'typeRef'. May be
-     *            <tt>null</tt> if the annotation targets 'typeRef' as a whole.
-     * @param desc
-     *            the class descriptor of the annotation class.
-     * @param visible
-     *            <tt>true</tt> if the annotation is visible at runtime.
-     * @return a visitor to visit the annotation values, or <tt>null</tt> if
-     *         this visitor is not interested in visiting this annotation.
-     */
-    public AnnotationVisitor visitTypeAnnotation(int typeRef, TypePath typePath, String desc, boolean visible) {
-        if (fv != null) {
-            return fv.visitTypeAnnotation(typeRef, typePath, desc, visible);
-        }
-        return null;
-    }
-
-    /**
-     * Visits a non standard attribute of the field.
-     * 
-     * @param attr
-     *            an attribute.
-     */
-    public void visitAttribute(Attribute attr) {
-        if (fv != null) {
-            fv.visitAttribute(attr);
-        }
-    }
-
-    /**
-     * Visits the end of the field. This method, which is the last one to be
-     * called, is used to inform the visitor that all the annotations and
-     * attributes of the field have been visited.
-     */
-    public void visitEnd() {
-        if (fv != null) {
-            fv.visitEnd();
-        }
-    }
+   /**
+    * Visits the end of the field.
+    * This method, which is the last one to be called, is used to inform the visitor that all the annotations and
+    * attributes of the field have been visited.
+    */
+   public void visitEnd() {}
 }

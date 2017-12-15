@@ -12,32 +12,19 @@ import mockit.internal.state.*;
 import mockit.internal.util.*;
 import static mockit.external.asm.Opcodes.*;
 
-public class BaseClassModifier extends ClassVisitor
+public class BaseClassModifier extends WrappingClassVisitor
 {
-   private static final int METHOD_ACCESS_MASK = 0xFFFF - ACC_ABSTRACT - ACC_NATIVE;
-   protected static final Type VOID_TYPE = Type.getType("Ljava/lang/Void;");
+   private static final int METHOD_ACCESS_MASK = 0xFFFF - Access.ABSTRACT - Access.NATIVE;
+   protected static final JavaType VOID_TYPE = ObjectType.create("java/lang/Void");
 
    @Nonnull
    protected final MethodVisitor methodAnnotationsVisitor = new MethodVisitor() {
       @Override
-      public AnnotationVisitor visitAnnotation(String desc, boolean visible)
-      {
-         return mw.visitAnnotation(desc, visible);
-      }
-
-      @Override
-      public void visitLocalVariable(
-         @Nonnull String name, @Nonnull String desc, String signature, @Nonnull Label start, @Nonnull Label end,
-         int index)
-      {}
-
-      @Override
-      public AnnotationVisitor visitParameterAnnotation(int parameter, String desc, boolean visible) { return null; }
+      public AnnotationVisitor visitAnnotation(@Nonnull String desc) { return mw.visitAnnotation(desc); }
    };
 
-   @Nonnull protected final ClassWriter cw;
    protected MethodWriter mw;
-   protected boolean useMockingBridge;
+   protected boolean useClassLoadingBridge;
    protected String superClassName;
    protected String classDesc;
    protected int methodAccess;
@@ -47,13 +34,11 @@ public class BaseClassModifier extends ClassVisitor
    protected BaseClassModifier(@Nonnull ClassReader classReader)
    {
       super(new ClassWriter(classReader));
-      //noinspection ConstantConditions
-      cw = (ClassWriter) cv;
    }
 
-   protected final void setUseMockingBridge(@Nullable ClassLoader classLoader)
+   protected final void setUseClassLoadingBridge(@Nullable ClassLoader classLoader)
    {
-      useMockingBridge = ClassLoad.isClassLoaderWithNoDirectAccess(classLoader);
+      useClassLoadingBridge = ClassLoad.isClassLoaderWithNoDirectAccess(classLoader);
    }
 
    @Override
@@ -64,10 +49,10 @@ public class BaseClassModifier extends ClassVisitor
       int modifiedVersion = version;
       int originalVersion = version & 0xFFFF;
 
-      if (originalVersion < V1_5) {
+      if (originalVersion < ClassVersion.V1_5) {
          // LDC instructions (see MethodVisitor#visitLdcInsn) are more capable in JVMs with support for class files of
          // version 49 (Java 5) or newer, so we "upgrade" it to avoid a VerifyError:
-         modifiedVersion = V1_5;
+         modifiedVersion = ClassVersion.V1_5;
       }
 
       cw.visit(modifiedVersion, access, name, signature, superName, interfaces);
@@ -109,7 +94,7 @@ public class BaseClassModifier extends ClassVisitor
          else {
             constructorDesc = SuperConstructorCollector.INSTANCE.findConstructor(classDesc, superClassName);
 
-            for (Type paramType : Type.getArgumentTypes(constructorDesc)) {
+            for (JavaType paramType : JavaType.getArgumentTypes(constructorDesc)) {
                pushDefaultValueForType(paramType);
             }
          }
@@ -120,7 +105,7 @@ public class BaseClassModifier extends ClassVisitor
 
    protected final void generateReturnWithObjectAtTopOfTheStack(@Nonnull String mockedMethodDesc)
    {
-      Type returnType = Type.getReturnType(mockedMethodDesc);
+      JavaType returnType = JavaType.getReturnType(mockedMethodDesc);
       TypeConversion.generateCastFromObject(mw, returnType);
       mw.visitInsn(returnType.getOpcode(IRETURN));
    }
@@ -151,12 +136,12 @@ public class BaseClassModifier extends ClassVisitor
    }
 
    public static void generateCodeToFillArrayWithParameterValues(
-      @Nonnull MethodWriter mw, @Nonnull Type[] parameterTypes, int initialArrayIndex, int initialParameterIndex)
+      @Nonnull MethodWriter mw, @Nonnull JavaType[] parameterTypes, int initialArrayIndex, int initialParameterIndex)
    {
       int i = initialArrayIndex;
       int j = initialParameterIndex;
 
-      for (Type parameterType : parameterTypes) {
+      for (JavaType parameterType : parameterTypes) {
          mw.visitInsn(DUP);
          mw.visitIntInsn(SIPUSH, i++);
          mw.visitVarInsn(parameterType.getOpcode(ILOAD), j);
@@ -166,10 +151,10 @@ public class BaseClassModifier extends ClassVisitor
       }
    }
 
-   protected final void generateCodeToObtainInstanceOfMockingBridge(@Nonnull MockingBridge mockingBridge)
+   protected final void generateCodeToObtainInstanceOfClassLoadingBridge(@Nonnull ClassLoadingBridge classLoadingBridge)
    {
-      String hostClassName = MockingBridge.getHostClassName();
-      mw.visitFieldInsn(GETSTATIC, hostClassName, mockingBridge.id, "Ljava/lang/reflect/InvocationHandler;");
+      String hostClassName = ClassLoadingBridge.getHostClassName();
+      mw.visitFieldInsn(GETSTATIC, hostClassName, classLoadingBridge.id, "Ljava/lang/reflect/InvocationHandler;");
    }
 
    protected final void generateCodeToFillArrayElement(int arrayIndex, @Nullable Object value)
@@ -195,24 +180,21 @@ public class BaseClassModifier extends ClassVisitor
       mw.visitInsn(AASTORE);
    }
 
-   private void pushDefaultValueForType(@Nonnull Type type)
+   private void pushDefaultValueForType(@Nonnull JavaType type)
    {
-      switch (type.getSort()) {
-         case Type.VOID: break;
-         case Type.BOOLEAN:
-         case Type.CHAR:
-         case Type.BYTE:
-         case Type.SHORT:
-         case Type.INT:    mw.visitInsn(ICONST_0); break;
-         case Type.LONG:   mw.visitInsn(LCONST_0); break;
-         case Type.FLOAT:  mw.visitInsn(FCONST_0); break;
-         case Type.DOUBLE: mw.visitInsn(DCONST_0); break;
-         case Type.ARRAY:  generateCreationOfEmptyArray(type); break;
-         default:          mw.visitInsn(ACONST_NULL);
+      if (type instanceof ArrayType) {
+         generateCreationOfEmptyArray((ArrayType) type);
+      }
+      else {
+         int constOpcode = type.getConstOpcode();
+
+         if (constOpcode > 0) {
+            mw.visitInsn(constOpcode);
+         }
       }
    }
 
-   private void generateCreationOfEmptyArray(@Nonnull Type arrayType)
+   private void generateCreationOfEmptyArray(@Nonnull ArrayType arrayType)
    {
       int dimensions = arrayType.getDimensions();
 
@@ -225,29 +207,14 @@ public class BaseClassModifier extends ClassVisitor
          return;
       }
 
-      Type elementType = arrayType.getElementType();
-      int elementSort = elementType.getSort();
+      JavaType elementType = arrayType.getElementType();
 
-      if (elementSort == Type.OBJECT) {
-         mw.visitTypeInsn(ANEWARRAY, elementType.getInternalName());
+      if (elementType instanceof ReferenceType) {
+         mw.visitTypeInsn(ANEWARRAY, ((ReferenceType) elementType).getInternalName());
       }
       else {
-         int typ = getArrayElementTypeCode(elementSort);
-         mw.visitIntInsn(NEWARRAY, typ);
-      }
-   }
-
-   private static int getArrayElementTypeCode(int elementSort)
-   {
-      switch (elementSort) {
-          case Type.BOOLEAN: return T_BOOLEAN;
-          case Type.CHAR:    return T_CHAR;
-          case Type.BYTE:    return T_BYTE;
-          case Type.SHORT:   return T_SHORT;
-          case Type.INT:     return T_INT;
-          case Type.FLOAT:   return T_FLOAT;
-          case Type.LONG:    return T_LONG;
-          default:           return T_DOUBLE;
+         int typeCode = PrimitiveType.getArrayElementType((PrimitiveType) elementType);
+         mw.visitIntInsn(NEWARRAY, typeCode);
       }
    }
 
@@ -260,16 +227,16 @@ public class BaseClassModifier extends ClassVisitor
 
    protected final void generateEmptyImplementation(@Nonnull String desc)
    {
-      Type returnType = Type.getReturnType(desc);
+      JavaType returnType = JavaType.getReturnType(desc);
       pushDefaultValueForType(returnType);
       mw.visitInsn(returnType.getOpcode(IRETURN));
-      mw.visitMaxs(1, 0);
+      mw.visitMaxStack(1);
    }
 
    protected final void generateEmptyImplementation()
    {
       mw.visitInsn(RETURN);
-      mw.visitMaxs(1, 0);
+      mw.visitMaxStack(1);
    }
 
    @Nonnull
@@ -287,9 +254,9 @@ public class BaseClassModifier extends ClassVisitor
       return new DynamicModifier();
    }
 
-   private class DynamicModifier extends MethodVisitor
+   private class DynamicModifier extends WrappingMethodVisitor
    {
-      DynamicModifier() { super(mw); }
+      DynamicModifier() { super(BaseClassModifier.this.mw); }
 
       @Override
       public final void visitLocalVariable(
@@ -347,7 +314,8 @@ public class BaseClassModifier extends ClassVisitor
       }
 
       @Override
-      public void visitTryCatchBlock(Label start, Label end, Label handler, String type)
+      public void visitTryCatchBlock(
+         @Nonnull Label start, @Nonnull Label end, @Nonnull Label handler, @Nullable String type)
       {
          if (callToAnotherConstructorAlreadyDisregarded) {
             mw.visitTryCatchBlock(start, end, handler, type);

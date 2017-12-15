@@ -13,6 +13,7 @@ import static java.lang.Boolean.*;
 
 import mockit.external.asm.*;
 import mockit.internal.*;
+import mockit.internal.startup.*;
 import mockit.internal.state.*;
 import mockit.internal.util.*;
 import static mockit.external.asm.ClassReader.*;
@@ -32,7 +33,7 @@ public final class CaptureTransformer<M> implements ClassFileTransformer
       boolean registerTransformedClasses, @Nullable M typeMetadata)
    {
       this.capturedType = capturedType;
-      capturedTypeDesc = Type.getInternalName(capturedType.baseType);
+      capturedTypeDesc = JavaType.getInternalName(capturedType.baseType);
       this.captureOfImplementations = captureOfImplementations;
       transformedClasses = registerTransformedClasses ?
          new HashMap<ClassIdentification, byte[]>(2) : Collections.<ClassIdentification, byte[]>emptyMap();
@@ -45,12 +46,11 @@ public final class CaptureTransformer<M> implements ClassFileTransformer
       inactive = true;
 
       if (!transformedClasses.isEmpty()) {
-         RedefinitionEngine redefinitionEngine = new RedefinitionEngine();
-
          for (Map.Entry<ClassIdentification, byte[]> classNameAndOriginalBytecode : transformedClasses.entrySet()) {
             ClassIdentification classId = classNameAndOriginalBytecode.getKey();
             byte[] originalBytecode = classNameAndOriginalBytecode.getValue();
-            redefinitionEngine.restoreToDefinition(classId.getLoadedClass(), originalBytecode);
+
+            Startup.redefineMethods(classId, originalBytecode);
          }
 
          transformedClasses.clear();
@@ -73,7 +73,7 @@ public final class CaptureTransformer<M> implements ClassFileTransformer
       SuperTypeCollector superTypeCollector = new SuperTypeCollector(loader);
 
       try {
-         cr.accept(superTypeCollector, SKIP_DEBUG);
+         cr.accept(superTypeCollector, SKIP_CODE + SKIP_DEBUG);
       }
       catch (VisitInterruptedException ignore) {
          if (superTypeCollector.classExtendsCapturedType) {
@@ -90,10 +90,10 @@ public final class CaptureTransformer<M> implements ClassFileTransformer
       @Nullable ClassLoader loader, @Nonnull String className, @Nonnull ClassReader cr)
    {
       ClassVisitor modifier = captureOfImplementations.createModifier(loader, cr, capturedType.baseType, typeMetadata);
-      cr.accept(modifier, SKIP_FRAMES);
+      cr.accept(modifier);
 
       ClassIdentification classId = new ClassIdentification(loader, className);
-      byte[] originalBytecode = cr.b;
+      byte[] originalBytecode = cr.getBytecode();
 
       if (transformedClasses == Collections.<ClassIdentification, byte[]>emptyMap()) {
          TestRun.mockFixture().addTransformedClass(classId, originalBytecode);
@@ -177,7 +177,7 @@ public final class CaptureTransformer<M> implements ClassFileTransformer
          ClassReader cr = ClassFile.createClassFileReader(loader, superName);
 
          try {
-            cr.accept(this, SKIP_DEBUG);
+            cr.accept(this, SKIP_CODE + SKIP_DEBUG);
          }
          catch (VisitInterruptedException e) {
             superTypesSearched.put(superName, classExtendsCapturedType);

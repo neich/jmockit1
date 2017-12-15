@@ -58,6 +58,11 @@ public final class Utilities
             return (Class<?>) ((ParameterizedType) declaredType).getRawType();
          }
 
+         if (declaredType instanceof GenericArrayType) {
+            declaredType = ((GenericArrayType) declaredType).getGenericComponentType();
+            continue;
+         }
+
          if (declaredType instanceof TypeVariable) {
             declaredType = ((TypeVariable<?>) declaredType).getBounds()[0];
             continue;
@@ -128,7 +133,7 @@ public final class Utilities
       return null;
    }
 
-   @SuppressWarnings("OverlyComplexMethod")
+   @SuppressWarnings({"OverlyComplexMethod", "rawtypes", "unchecked"})
    @Nullable
    public static Object convertFromString(@Nonnull Class<?> targetType, @Nullable String value)
    {
@@ -160,9 +165,9 @@ public final class Utilities
             return new AtomicLong(Long.parseLong(value.trim()));
          }
          else if (targetType.isEnum()) {
-            @SuppressWarnings({"rawtypes", "unchecked"})
-            Class<? extends Enum> enumType = (Class<? extends Enum>) targetType;
-            return Enum.valueOf(enumType, value);
+            Class<Enum> enumType = (Class<Enum>) targetType;
+            Object enumValue = Enum.valueOf(enumType, value);
+            return enumValue;
          }
       }
 

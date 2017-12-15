@@ -4,6 +4,8 @@
  */
 package mockit.integration.testng;
 
+import java.util.concurrent.*;
+
 import org.testng.annotations.*;
 import static org.testng.Assert.*;
 
@@ -35,6 +37,7 @@ public final class TestedAndInjectablesTest
    }
 
    @Tested(availableDuringSetup = true) UtilityClass util;
+   UtilityClass previousUtilityClassInstance;
    @Injectable("util") String utilName;
 
    @Tested SUT tested1;
@@ -91,6 +94,8 @@ public final class TestedAndInjectablesTest
       }};
 
       tested1.useCollaborators();
+
+      previousUtilityClassInstance = util;
    }
 
    void assertStatesOfTestedObjects(Collaborator collaborator2)
@@ -118,5 +123,18 @@ public final class TestedAndInjectablesTest
       assertNotSame(tested1, firstTestedObject);
 
       assertStatesOfTestedObjects(collaborator2);
+
+      assertNotSame(util, previousUtilityClassInstance);
+   }
+
+   @Test
+   public void recordAndVerifyExpectationsOnMockedInterface(@Injectable final Callable<String> mock) throws Exception
+   {
+      new Expectations() {{ mock.call(); result = "test"; minTimes = 0; }};
+
+      String value = mock.call();
+
+      assertEquals("test", value);
+      new Verifications() {{ mock.call(); times = 1; }};
    }
 }

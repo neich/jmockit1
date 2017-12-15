@@ -9,8 +9,6 @@ import javax.annotation.*;
 import mockit.external.asm.*;
 import mockit.internal.*;
 import mockit.internal.state.*;
-import static mockit.external.asm.ClassReader.*;
-import static mockit.external.asm.Opcodes.*;
 
 public final class ParameterNameExtractor extends ClassVisitor
 {
@@ -33,7 +31,7 @@ public final class ParameterNameExtractor extends ClassVisitor
       if (!ParameterNames.hasNamesForClass(classDesc)) {
          // Reads class from file, since JRE 1.6 (but not 1.7) discards parameter names on retransformation.
          ClassReader cr = ClassFile.readFromFile(classDesc);
-         cr.accept(this, SKIP_FRAMES);
+         cr.accept(this);
       }
 
       return classDesc;
@@ -43,7 +41,7 @@ public final class ParameterNameExtractor extends ClassVisitor
    public MethodVisitor visitMethod(
       int access, @Nonnull String name, @Nonnull String desc, @Nullable String signature, @Nullable String[] exceptions)
    {
-      if ((access & ACC_SYNTHETIC) == 0) {
+      if ((access & Access.SYNTHETIC) == 0) {
          memberAccess = access;
          memberName = name;
          memberDesc = desc;
@@ -57,7 +55,8 @@ public final class ParameterNameExtractor extends ClassVisitor
    {
       @Override
       public void visitLocalVariable(
-         @Nonnull String name, @Nonnull String desc, String signature, Label start, Label end, @Nonnegative int index)
+         @Nonnull String name, @Nonnull String desc, String signature, @Nonnull Label start, @Nonnull Label end,
+         @Nonnegative int index)
       {
          ParameterNames.registerName(classDesc, memberAccess, memberName, memberDesc, desc, name, index);
       }

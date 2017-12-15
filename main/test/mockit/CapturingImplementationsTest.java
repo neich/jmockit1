@@ -4,7 +4,6 @@
  */
 package mockit;
 
-import java.io.*;
 import java.lang.management.*;
 import java.lang.reflect.*;
 
@@ -115,13 +114,21 @@ public final class CapturingImplementationsTest
       @Override
       protected Class<? extends Service2> findClass(String name)
       {
-         byte[] bytecode = ClassFile.readFromFile(name.replace('.', '/')).b;
+         byte[] bytecode = ClassFile.readFromFile(name.replace('.', '/')).getBytecode();
          //noinspection unchecked
          return (Class<? extends Service2>) defineClass(name, bytecode, 0, bytecode.length);
       }
    }.findClass(Service2Impl.class.getName());
 
-   final Service2 service2 = Deencapsulation.newInstance(customLoadedClass);
+   Service2 service2;
+
+   @Before
+   public void instantiateCustomLoadedClass() throws Exception
+   {
+      Constructor<?> defaultConstructor = customLoadedClass.getDeclaredConstructors()[0];
+      defaultConstructor.setAccessible(true);
+      service2 = (Service2) defaultConstructor.newInstance();
+   }
 
    @Test
    public void captureClassPreviouslyLoadedByClassLoaderOtherThanContext(@Capturing final Service2 mock)
@@ -131,41 +138,6 @@ public final class CapturingImplementationsTest
       }};
 
       assertEquals(15, service2.doSomething());
-   }
-
-   @BeforeClass
-   public static void generateDynamicProxyClassBeforeCapturing()
-   {
-      proxyInstance = newProxyClassAndInstance(Service1.class, Serializable.class);
-   }
-
-   static Service1 newProxyClassAndInstance(Class<?>... interfacesToImplement)
-   {
-      ClassLoader loader = Service1.class.getClassLoader();
-
-      return (Service1) Proxy.newProxyInstance(loader, interfacesToImplement, new InvocationHandler() {
-         @Override
-         public Object invoke(Object proxy, Method method, Object[] args)
-         {
-            fail("Should be mocked out");
-            return null;
-         }
-      });
-   }
-
-   static Service1 proxyInstance;
-
-   @Test
-   public void captureDynamicallyGeneratedProxyClass() throws Exception
-   {
-      assertEquals(0, proxyInstance.doSomething());
-
-      new Expectations() {{ mockService1.doSomething(); result = 123; }};
-
-      assertEquals(123, proxyInstance.doSomething());
-
-      Service1 anotherProxyInstance = newProxyClassAndInstance(Service1.class);
-      assertEquals(123, anotherProxyInstance.doSomething());
    }
 
    interface Interface { void op(); }

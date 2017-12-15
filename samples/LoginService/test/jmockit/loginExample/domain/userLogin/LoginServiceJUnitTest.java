@@ -29,7 +29,7 @@ public final class LoginServiceJUnitTest
       new Verifications() {{ account.setLoggedIn(true); }};
    }
 
-   void willMatchPassword(final boolean... matches)
+   void willMatchPassword(boolean... matches)
    {
       new Expectations() {{ account.passwordMatches(anyString); result = matches; }};
    }
@@ -57,7 +57,7 @@ public final class LoginServiceJUnitTest
    }
 
    @Test
-   public void notRevokeSecondAccountAfterTwoFailedAttemptsOnFirstAccount(@Mocked final UserAccount secondAccount)
+   public void notRevokeSecondAccountAfterTwoFailedAttemptsOnFirstAccount(@Mocked UserAccount secondAccount)
       throws Exception
    {
       willMatchPassword(false);
@@ -71,15 +71,7 @@ public final class LoginServiceJUnitTest
       service.login("john", "password");
       service.login("roger", "password");
 
-      new AccountNotRevoked(secondAccount);
-   }
-
-   private static final class AccountNotRevoked extends Verifications
-   {
-      AccountNotRevoked(UserAccount accountToVerify)
-      {
-         accountToVerify.setRevoked(true); times = 0;
-      }
+      new Verifications() {{ secondAccount.setRevoked(true); times = 0; }};
    }
 
    @Test(expected = AccountLoginLimitReachedException.class)
@@ -120,6 +112,6 @@ public final class LoginServiceJUnitTest
       service.login("john", "password");
       service.login("john", "password");
 
-      new AccountNotRevoked(account);
+      new Verifications() {{ account.setRevoked(true); times = 0; }};
    }
 }
