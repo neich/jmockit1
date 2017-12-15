@@ -4,7 +4,7 @@
    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
    <modelVersion>4.0.0</modelVersion>
 
-   <groupId>org.jmockit</groupId><artifactId>jmockit</artifactId><version>1.35_pp</version>
+   <groupId>org.jmockit</groupId><artifactId>jmockit</artifactId><version>1.38.pp</version>
    <packaging>jar</packaging>
 
    <name>Main</name>
@@ -105,10 +105,10 @@
             </executions>
          </plugin>
          <plugin>
-            <artifactId>maven-compiler-plugin</artifactId><version>3.6.1</version>
+            <artifactId>maven-compiler-plugin</artifactId><version>3.6.2</version>
             <configuration>
                <encoding>UTF-8</encoding>
-               <source>1.7</source><target>1.7</target>
+               <source>1.6</source><target>1.6</target>
                <compilerArgs><arg>-Xlint:none</arg></compilerArgs>
                <useIncrementalCompilation>false</useIncrementalCompilation>
             </configuration>
@@ -213,7 +213,6 @@
                      <junitArtifactName>none:none</junitArtifactName>
                      <includes>
                         <include>**/testng/*Test.class</include>
-                        <include>**/MockStateBetweenTestMethodsNGTest.class</include>
                      </includes>
                      <excludes>
                         <exclude>**/TestNGViolatedExpectationsTest.class</exclude>
@@ -232,7 +231,7 @@
                </execution>
             </executions>
          </plugin>
-<!--
+         <!--
          <plugin>
             <groupId>org.sonatype.plugins</groupId><artifactId>nexus-staging-maven-plugin</artifactId>
             <version>1.6.8</version>
@@ -243,7 +242,7 @@
                <autoReleaseAfterClose>true</autoReleaseAfterClose>
             </configuration>
          </plugin>
--->
+         -->
 <!--
          <plugin>
             &lt;!&ndash; Deploy the web site &ndash;&gt;
@@ -275,7 +274,7 @@
          <plugin>
             <groupId>com.github.github</groupId>
             <artifactId>site-maven-plugin</artifactId>
-            <version>0.11</version>
+            <version>0.12</version>
             <configuration>
                <message>Maven artifacts for ${project.version}</message>  <!-- git commit message -->
                <noJekyll>true</noJekyll>                                  <!-- disable webpage processing -->
@@ -301,18 +300,17 @@
    <dependencies>
       <dependency>
          <groupId>com.google.code.findbugs</groupId><artifactId>jsr305</artifactId><version>3.0.2</version>
-         <optional>true</optional>
       </dependency>
       <dependency>
          <groupId>junit</groupId><artifactId>junit</artifactId><version>4.12</version>
          <optional>true</optional>
       </dependency>
       <dependency>
-         <groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter-engine</artifactId><version>5.0.0-RC3</version>
+         <groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter-engine</artifactId><version>5.0.2</version>
          <optional>true</optional>
       </dependency>
       <dependency>
-         <groupId>org.testng</groupId><artifactId>testng</artifactId><version>6.9.10</version>
+         <groupId>org.testng</groupId><artifactId>testng</artifactId><version>6.13.1</version>
          <optional>true</optional>
          <exclusions>
             <exclusion><groupId>com.google.inject</groupId><artifactId>guice</artifactId></exclusion>
