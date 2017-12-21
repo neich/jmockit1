@@ -108,7 +108,7 @@
             <artifactId>maven-compiler-plugin</artifactId><version>3.6.2</version>
             <configuration>
                <encoding>UTF-8</encoding>
-               <source>1.6</source><target>1.6</target>
+               <source>1.7</source><target>1.7</target>
                <compilerArgs><arg>-Xlint:none</arg></compilerArgs>
                <useIncrementalCompilation>false</useIncrementalCompilation>
             </configuration>
@@ -231,8 +231,7 @@
                </execution>
             </executions>
          </plugin>
-         <!--
-         <plugin>
+<!--         <plugin>
             <groupId>org.sonatype.plugins</groupId><artifactId>nexus-staging-maven-plugin</artifactId>
             <version>1.6.8</version>
             <extensions>true</extensions>
@@ -241,8 +240,7 @@
                <nexusUrl>https://oss.sonatype.org/</nexusUrl>
                <autoReleaseAfterClose>true</autoReleaseAfterClose>
             </configuration>
-         </plugin>
-         -->
+         </plugin>-->
 <!--
          <plugin>
             &lt;!&ndash; Deploy the web site &ndash;&gt;
@@ -274,7 +272,7 @@
          <plugin>
             <groupId>com.github.github</groupId>
             <artifactId>site-maven-plugin</artifactId>
-            <version>0.12</version>
+            <version>0.11</version>
             <configuration>
                <message>Maven artifacts for ${project.version}</message>  <!-- git commit message -->
                <noJekyll>true</noJekyll>                                  <!-- disable webpage processing -->
@@ -310,7 +308,7 @@
          <optional>true</optional>
       </dependency>
       <dependency>
-         <groupId>org.testng</groupId><artifactId>testng</artifactId><version>6.13.1</version>
+         <groupId>org.testng</groupId><artifactId>testng</artifactId><version>6.10</version>
          <optional>true</optional>
          <exclusions>
             <exclusion><groupId>com.google.inject</groupId><artifactId>guice</artifactId></exclusion>
