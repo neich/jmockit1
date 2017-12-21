@@ -13,7 +13,7 @@ import java.util.*;
 public final class PPNodeBuilder
 {
    public int firstLine;
-   @Nonnull final List<PPNode> nodes = new ArrayList<>();
+   @Nonnull final List<PPNode> nodes = new ArrayList<PPNode>();
 
    @Nullable private PPNode entryNode;
    @Nullable private Map<Class<?>, Label> catch2label = new HashMap<>();

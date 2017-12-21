@@ -42,7 +42,7 @@ final class PPathBuilder
    }
 
    private static Stack<PPNode> simplifyGraph(List<PPNode> origNodes) {
-      Stack<PPNode> nodes = new Stack<>();
+      Stack<PPNode> nodes = new Stack<PPNode>();
 
       for (PPNode n : origNodes) {
          if (n.getSubsumedBy() != null) continue;

@@ -67,7 +67,7 @@ public class PPNode implements Serializable
    @Nonnull private final transient ThreadLocal<Boolean> reached = new ThreadLocal<Boolean>();
    public final int line;
    protected int segment;
-   protected List<LineSegment> extraLineSegments = new ArrayList<>();
+   protected List<LineSegment> extraLineSegments = new ArrayList<LineSegment>();
    protected List<PPNode> incomingNodes = new ArrayList<PPNode>();
    protected PPNode subsumedBy = null;
    private boolean isGoto = false;

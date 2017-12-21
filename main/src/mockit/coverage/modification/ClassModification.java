@@ -4,13 +4,10 @@
  */
 package mockit.coverage.modification;
 
-import java.lang.instrument.*;
-import java.security.*;
-import java.util.*;
-import javax.annotation.*;
+import mockit.external.asm.ClassReader;
+import mockit.external.asm.ClassVisitor;
+import mockit.internal.startup.Startup;
 
-import mockit.external.asm.*;
-import mockit.internal.startup.*;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.lang.instrument.ClassDefinition;
@@ -23,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 
 import static mockit.coverage.Metrics.PrimePathCoverage;
-import static mockit.external.asm.ClassReader.SKIP_FRAMES;
 
 public final class ClassModification
 {

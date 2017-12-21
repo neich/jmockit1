@@ -24,13 +24,12 @@ import java.util.regex.Pattern;
 
 import static mockit.coverage.Metrics.DataCoverage;
 import static mockit.coverage.Metrics.PrimePathCoverage;
-import static mockit.external.asm.ClassReader.SKIP_FRAMES;
 import static mockit.external.asm.Opcodes.*;
 
-final class PPCoverageModifier extends ClassVisitor
+final class PPCoverageModifier extends WrappingClassVisitor
 {
    private static final Map<String, PPCoverageModifier> INNER_CLASS_MODIFIERS = new HashMap<String, PPCoverageModifier>();
-   private static final int FIELD_MODIFIERS_TO_IGNORE = ACC_FINAL + ACC_SYNTHETIC;
+   private static final int FIELD_MODIFIERS_TO_IGNORE = Access.FINAL + Access.SYNTHETIC;
    private static final int MAX_CONDITIONS = Integer.getInteger("jmockit-coverage-maxConditions", 10);
    private static final boolean WITH_PATH_OR_DATA_COVERAGE = PrimePathCoverage.active || DataCoverage.active;
 
@@ -62,7 +61,6 @@ final class PPCoverageModifier extends ClassVisitor
       try { return new ClassReader(classFile); } catch (IOException ignore) { return null; }
    }
 
-   @Nonnull private final ClassWriter cw;
    @Nullable private String internalClassName;
    @Nullable private String simpleClassName;
    @Nonnull private String sourceFileName;
@@ -84,7 +82,6 @@ final class PPCoverageModifier extends ClassVisitor
    private PPCoverageModifier(@Nonnull ClassReader cr, boolean forInnerClass, @Nullable BitSet linesReprocessed)
    {
       super(new ClassWriter(cr));
-      cw = (ClassWriter) cv;
       sourceFileName = "";
       this.linesReprocessed = linesReprocessed;
       this.forInnerClass = forInnerClass;
@@ -104,7 +101,7 @@ final class PPCoverageModifier extends ClassVisitor
       int version, int access, @Nonnull String name, @Nullable String signature, String superName,
       @Nullable String[] interfaces)
    {
-      if ((access & ACC_SYNTHETIC) != 0) {
+      if ((access & Access.SYNTHETIC) != 0) {
          throw new VisitInterruptedException();
       }
 
@@ -114,7 +111,7 @@ final class PPCoverageModifier extends ClassVisitor
          kindOfTopLevelType = getKindOfJavaType(access, superName);
       }
 
-      forEnumClass = (access & ACC_ENUM) != 0;
+      forEnumClass = (access & Access.ENUM) != 0;
 
       if (!forInnerClass) {
          internalClassName = name;
@@ -129,9 +126,9 @@ final class PPCoverageModifier extends ClassVisitor
             sourceFileName = name.substring(0, p + 1);
          }
 
-         cannotModify = (access & ACC_ANNOTATION) != 0;
+         cannotModify = (access & Access.ANNOTATION) != 0;
 
-         if (!forEnumClass && (access & ACC_SUPER) != 0 && nestedType) {
+         if (!forEnumClass && (access & Access.SUPER) != 0 && nestedType) {
             INNER_CLASS_MODIFIERS.put(name.replace('/', '.'), this);
          }
       }
@@ -142,16 +139,16 @@ final class PPCoverageModifier extends ClassVisitor
    @Nonnull
    private static String getKindOfJavaType(int typeModifiers, @Nonnull String superName)
    {
-      if ((typeModifiers & ACC_ANNOTATION) != 0) return "annotation";
-      else if ((typeModifiers & ACC_INTERFACE) != 0) return "interface";
-      else if ((typeModifiers & ACC_ENUM) != 0) return "enum";
-      else if ((typeModifiers & ACC_ABSTRACT) != 0) return "abstractClass";
+      if ((typeModifiers & Access.ANNOTATION) != 0) return "annotation";
+      else if ((typeModifiers & Access.INTERFACE) != 0) return "interface";
+      else if ((typeModifiers & Access.ENUM) != 0) return "enum";
+      else if ((typeModifiers & Access.ABSTRACT) != 0) return "abstractClass";
       else if (superName.endsWith("Exception") || superName.endsWith("Error")) return "exception";
       return "class";
    }
 
    @Override
-   public void visitSource(@Nullable String file, @Nullable String debug)
+   public void visitSource(@Nullable String file)
    {
       if (file == null || !file.endsWith(".java")) {
          throw VisitInterruptedException.INSTANCE;
@@ -166,7 +163,7 @@ final class PPCoverageModifier extends ClassVisitor
          fileData = CoverageData.instance().getOrAddFile(sourceFileName, kindOfTopLevelType);
       }
 
-      cw.visitSource(file, debug);
+      cw.visitSource(file);
    }
 
    @Override
@@ -193,14 +190,14 @@ final class PPCoverageModifier extends ClassVisitor
 
       if (innerCR != null) {
          PPCoverageModifier innerClassModifier = new PPCoverageModifier(innerCR, this, innerName);
-         innerCR.accept(innerClassModifier, SKIP_FRAMES);
+         innerCR.accept(innerClassModifier);
          INNER_CLASS_MODIFIERS.put(innerClassName, innerClassModifier);
       }
    }
 
    private static boolean isSyntheticOrEnumClass(int access)
    {
-      return (access & ACC_SYNTHETIC) != 0 || access == ACC_STATIC + ACC_ENUM;
+      return (access & Access.SYNTHETIC) != 0 || access == Access.STATIC + Access.ENUM;
    }
 
    private boolean isNestedInsideClassBeingModified(@Nonnull String internalName, @Nullable String outerName)
@@ -220,7 +217,7 @@ final class PPCoverageModifier extends ClassVisitor
          fileData != null && simpleClassName != null &&
          (access & FIELD_MODIFIERS_TO_IGNORE) == 0 && DataCoverage.active
       ) {
-         fileData.dataCoverageInfo.addField(simpleClassName, name, (access & ACC_STATIC) != 0);
+         fileData.dataCoverageInfo.addField(simpleClassName, name, (access & Access.STATIC) != 0);
       }
 
       return cw.visitField(access, name, desc, signature, value);
@@ -232,7 +229,7 @@ final class PPCoverageModifier extends ClassVisitor
    {
       MethodWriter mw = cw.visitMethod(access, name, desc, signature, exceptions);
 
-      if (fileData == null || (access & ACC_SYNTHETIC) != 0) {
+      if (fileData == null || (access & Access.SYNTHETIC) != 0) {
          return mw;
       }
 
@@ -249,7 +246,7 @@ final class PPCoverageModifier extends ClassVisitor
       return WITH_PATH_OR_DATA_COVERAGE ? new MethodModifier(mw) : new BaseMethodModifier(mw);
    }
 
-   private class BaseMethodModifier extends MethodVisitor
+   private class BaseMethodModifier extends WrappingMethodVisitor
    {
       static final String DATA_RECORDING_CLASS = "mockit/coverage/TestRun";
 
@@ -336,7 +333,7 @@ final class PPCoverageModifier extends ClassVisitor
             return;
          }
 
-         Label jumpingFrom = mw.currentBlock;
+         Label jumpingFrom = mw.getCurrentBlock();
          assert jumpingFrom != null;
          jumpingFrom.info = currentLine;
 
@@ -759,7 +756,7 @@ final class PPCoverageModifier extends ClassVisitor
          }
 
          Pattern pattern = Pattern.compile("\\((L[^;]+;|[ZBCSIFDJV])*\\)");
-         List<String> parameters = new ArrayList<>();
+         List<String> parameters = new ArrayList<String>();
          Matcher matcher = pattern.matcher(desc);
          while (matcher.find()) {
             String group = matcher.group(1);
@@ -864,7 +861,7 @@ final class PPCoverageModifier extends ClassVisitor
       MethodModifier(@Nonnull MethodWriter mw) { super(mw); }
 
       @Override
-      public AnnotationVisitor visitAnnotation(@Nonnull String desc, boolean visible)
+      public AnnotationVisitor visitAnnotation(@Nonnull String desc)
       {
          boolean isTestMethod = desc.startsWith("Lorg/junit/") || desc.startsWith("Lorg/testng/");
 
@@ -872,7 +869,7 @@ final class PPCoverageModifier extends ClassVisitor
             throw VisitInterruptedException.INSTANCE;
          }
 
-         return mw.visitAnnotation(desc, visible);
+         return mw.visitAnnotation(desc);
       }
    }
 

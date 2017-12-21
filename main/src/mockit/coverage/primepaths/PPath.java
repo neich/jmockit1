@@ -15,7 +15,7 @@ public final class PPath implements Serializable
 {
    private static final long serialVersionUID = 8895491272907955543L;
 
-   @Nonnull final Stack<PPNode> nodes = new Stack<>();
+   @Nonnull final Stack<PPNode> nodes = new Stack<PPNode>();
    @Nonnull private final AtomicInteger executionCount = new AtomicInteger();
    private final boolean shadowed;
    @Nullable private PPath shadowPath;
