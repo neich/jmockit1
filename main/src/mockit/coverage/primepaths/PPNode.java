@@ -7,6 +7,7 @@ package mockit.coverage.primepaths;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.Serializable;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,6 +16,7 @@ public class PPNode implements Serializable
 {
 
    private boolean subsumable = false;
+   private int index;
 
    public void setSubsumable(boolean subsumable) {
       this.subsumable = subsumable;
@@ -43,14 +45,24 @@ public class PPNode implements Serializable
    }
 
    public boolean isEntry() {
-      return false;
+      return incomingNodes.size() == 0;
    }
-
-   public boolean isExit() { return false; }
 
    public boolean isGoto() { return false; }
 
+   public boolean isExit() {
+      return nextConsecutiveNode == null && jumpNodes == null;
+   }
+
    public boolean isRegular() { return false; }
+
+   public void setIndex(int index) {
+      this.index = index;
+   }
+
+   public int getIndex() {
+      return index;
+   }
 
    public static class LineSegment {
       public int line;
@@ -71,6 +83,7 @@ public class PPNode implements Serializable
    protected List<PPNode> incomingNodes = new ArrayList<PPNode>();
    protected PPNode subsumedBy = null;
    private boolean isGoto = false;
+   private boolean isExit = false;
 
    @Nullable protected PPNode nextConsecutiveNode;
    @Nullable protected List<PPNode> jumpNodes;
@@ -182,7 +195,7 @@ public class PPNode implements Serializable
       else if (isFork()) baseName = "Fork";
       else baseName = "Block";
 */
-      return baseName + ':' + line + '-' + segment;
+      return MessageFormat.format("{0} -> {1}:{2}-{3}", index, baseName, line, segment);
    }
 
    public void addIncomingNode(PPNode node) {
