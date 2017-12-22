@@ -103,9 +103,26 @@ public final class PPath implements Serializable
    }
 
    public boolean isPrime() {
+      if (nodes.size() > 1 && nodes.get(0) == nodes.peek())
+         return true;
       PPNode node = this.nodes.get(0);
       for (PPNode n: node.getIncomingNodes())
          if (!this.nodes.contains(n)) return false;
       return true;
+   }
+
+   public boolean isSimple() {
+      int len = this.nodes.size();
+      for (int i = 0; i < len - 1; ++i) {
+         for (int j = len - 1; j > i; --j) {
+            if (this.nodes.get(i) == this.nodes.get(j) && !(i == 0 && j == len - 1))
+               return false;
+         }
+      }
+      return true;
+   }
+
+   public PPNode getLastNode() {
+      return nodes.peek();
    }
 }
