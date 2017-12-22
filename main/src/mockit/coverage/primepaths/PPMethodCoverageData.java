@@ -73,6 +73,7 @@ public final class PPMethodCoverageData implements Serializable
          n.setReached(Boolean.TRUE);
          if (testPathNodes.size() == 0 || testPathNodes.get(testPathNodes.size()-1) != n)
             testPathNodes.add(n);
+/*
          if (!(node instanceof PPNode.Fork)) {
             PPNode next = node.getNextConsecutiveNode();
             if (next != null) {
@@ -81,6 +82,7 @@ public final class PPMethodCoverageData implements Serializable
                   testPathNodes.add(next);
             }
          }
+*/
       }
 
       int previousExecutionCount = -1;
